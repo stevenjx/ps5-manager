@@ -1,0 +1,47 @@
+# Build artifacts
+server
+ps5-manager
+*.exe
+*.dll
+*.so
+*.dylib
+__debug_bin*
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependencies (if vendor/ is used)
+vendor/
+
+# Runtime data directories (user content, not source)
+config/
+covers/
+meta-cache/
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# WorkBuddy
+.workbuddy-ai/
+
+# User uploads / test data
+test_games/
+test_config/

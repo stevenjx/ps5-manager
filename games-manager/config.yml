@@ -1,0 +1,114 @@
+# =============================================================================
+# Games Manager (RomM 5.4.0) —— config.yml
+# 挂载位置：./config/config.yml  ->  容器内 /romm/config/config.yml
+# -----------------------------------------------------------------------------
+# 本文件所有键名与取值均对齐 RomM 5.4.0 官方 schema，未做任何大小写/格式猜测：
+#   键名结构  : examples/config.example.yml + backend/config/config_manager.py
+#   语言码枚举: backend/handler/filesystem/base_handler.py -> LANGUAGES
+#   地区码枚举: backend/handler/filesystem/base_handler.py -> REGIONS
+#                                            / REGION_NAME_TO_PROVIDER_SHORTCODE
+#   媒体类型  : docs.romm.app / reference/configuration-file  -> scan.media
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1) 元数据抓取回退流水线（First match wins —— 首个匹配成功即采用）
+#    游戏简介优先级：Local Gamelist(本地中文)  ->  IGDB(官方英文，100% 兜底)
+# -----------------------------------------------------------------------------
+scan:
+  priority:
+    # 顶层元数据源优先级：决定标题 / 简介 / 发售日期 / 开发商 / 发行商的取值来源
+    metadata:
+      - gamelist    # ① 本地 gamelist.xml：注入精准中文官方简介与中文译名（最高优先级）
+      - igdb        # ② IGDB：官方原版简介、发售日期、开发商/发行商（100% 兜底）
+      - hasheous    # ③ Hasheous：哈希匹配，补充 dump 的 region/language 标签（免 Key）
+      - playmatch   # ④ Playmatch：哈希匹配兜底（免 Key）
+
+    # 封面与截图素材源优先级
+    artwork:
+      - sgdb        # SteamGridDB：高清封面 / 透明 Logo / Banner / Hero（最高优先级）
+      - igdb        # IGDB：官方竖版封面与官方截图
+
+    # 分字段覆盖（未列出的字段自动回退到上面的 artwork 顺序）
+    cover:
+      - sgdb
+      - igdb
+    screenshot:
+      - igdb
+      - sgdb
+
+    # 地区优先级：决定标题、封面与「同一游戏多份 dump」时画廊展示哪一份
+    # 取值必须是 REGION_NAME_TO_PROVIDER_SHORTCODE 的 shortcode，小写
+    region:
+      - cn          # 中国（IGDB 本地化标识 zh-CN，中文标题/封面优先）
+      - us
+      - eu
+      - jp
+      - wor
+
+    # prefer_config = 配置的地区优先于 ROM 文件名里的地区标签；
+    #   例：为 (Europe) 的 dump 优先尝试取中文封面，缺失时回退到文件名标签。
+    #   若希望「文件名标签优先」，改为 prefer_rom_tags。
+    region_mode: prefer_config
+
+    # 本地化语言优先级（当前 RomM 仅 ScreenScraper 用于简介；
+    # 中文简介由上面的 gamelist 源提供，此处保留用于 taxonomy 与未来扩展）
+    language:
+      - zh          # Chinese
+      - en          # English
+
+  # 扫描时抓取的媒体类型
+  media:
+    - box2d       # 高清竖版封面
+    - screenshot  # 官方截图
+    - logo        # 无水印透明 Logo
+
+# -----------------------------------------------------------------------------
+# 2) 文件系统与库结构
+# -----------------------------------------------------------------------------
+filesystem:
+  # 必须为 false：PS3 需要读取镜像内 Title ID（sigil）来识别
+  skip_hash_calculation: false
+  # 必须为 false：Switch / PS3 需要从二进制读取 Title ID
+  skip_title_id_extraction: false
+  # 保持 false：本方案采用「游戏文件夹内 update/、dlc/ 子目录」归类，
+  # 不通过改写文件名嵌入 [TITLEID][vVERSION]
+  embed_switch_title_ids: false
+
+  # 库结构模板：{platform} = 平台目录；{game} = 一个游戏的起点
+  structure:
+    default: 'roms/{platform}/{game}'
+    firmware: 'bios/{platform}'
+    # PS3 可选：如需区分 Disc / PSN，取消下面注释
+    # （启用后 roms/ps3/<分类>/<游戏> 成为固定层级，见 NAMING-CONVENTIONS.md）
+    # ps3: 'roms/{platform}/{category}/{game}'
+
+# -----------------------------------------------------------------------------
+# 3) 平台目录名映射（仅当库内目录名与标准 slug 不一致时才需要）
+#    ps3 / ps4 / ps5 / switch 均为 RomM 标准平台 slug，目录同名即可，无需映射。
+#    若你使用自定义目录名（如 PlayStation 5），再取消注释并改成：
+# -----------------------------------------------------------------------------
+# system:
+#   platforms:
+#     'PlayStation 3': ps3
+#     'PlayStation 4': ps4
+#     'PlayStation 5': ps5
+#     'Nintendo Switch': switch
+
+# -----------------------------------------------------------------------------
+# 4) 扫描排除项：过滤元数据/系统文件，避免误入库
+# -----------------------------------------------------------------------------
+exclude:
+  roms:
+    single_file:
+      extensions:
+        - txt
+        - nfo
+        - xml
+      names:
+        - '._*'          # macOS 资源叉
+        - '.DS_Store'
+    multi_file:
+      names:             # 游戏文件夹内不视为 ROM 的子目录
+        - media
+        - screenshots
+        - manuals

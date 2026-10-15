@@ -1,0 +1,144 @@
+# =============================================================================
+# Games Manager (RomM) —— PS3 / PS4 / PS5 / Switch 多平台元数据刮削栈
+# -----------------------------------------------------------------------------
+# 基线版本：RomM 5.4.0（2026-10-10 发布）
+# 键名与枚举值来源（已逐项核对，未做任何猜测）：
+#   - examples/docker-compose.example.yml   (tag 5.4.0)
+#   - backend/config/__init__.py            (tag 5.4.0) 环境变量名
+#   - docs.romm.app / reference/configuration-file
+#
+# 安全约定：所有 API Key 与口令只写入同目录 .env（不入版本控制），
+#          本文件仅通过 ${VAR} 引用，绝不出现明文凭证。
+#
+# 首次使用：
+#   cp .env.example .env    # 填写 IGDB / SteamGridDB / 各口令
+#   docker compose up -d
+# =============================================================================
+
+volumes:
+  mysql_data:      # MariaDB 数据
+  romm_resources:  # IGDB / SteamGridDB 抓取的封面、截图、Logo
+  romm_assets:     # 存档、即时存档
+  valkey_data:     # 缓存 / 后台任务队列持久化
+
+services:
+  # ── 1. 核心服务：Games Manager ──────────────────────────────────────────────
+  romm:
+    image: rommapp/romm:5.4.0
+    container_name: romm
+    restart: unless-stopped
+    # 不使用 env_file：避免把数据库 root 口令等无关凭证一并注入本容器。
+    # Compose 会自动从同目录 .env 读取变量用于下面的 ${VAR} 插值。
+    environment:
+      # ---- 会话 / 令牌签名密钥 ----
+      ROMM_AUTH_SECRET_KEY: ${ROMM_AUTH_SECRET_KEY}
+
+      # ---- 数据库（MariaDB）----
+      DB_HOST: romm-db
+      DB_PORT: "3306"
+      DB_NAME: romm
+      DB_USER: romm-user
+      DB_PASSWD: ${MARIADB_PASSWORD}
+      ROMM_DB_DRIVER: mariadb
+
+      # ---- 缓存 / 后台任务队列（Valkey，Redis 协议兼容）----
+      REDIS_HOST: romm-cache
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${VALKEY_PASSWORD}
+      REDIS_DB: "0"
+
+      # ---- 主力通用源：IGDB（全量覆盖 PS3 / PS4 / PS5 / Switch）----
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET}
+
+      # ---- 美化与高清素材源：SteamGridDB（高清封面 / 透明 Logo / Banner / Hero）----
+      STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY}
+
+      # ---- 哈希匹配源：Hasheous / Playmatch（均免 API Key）----
+      HASHEOUS_API_ENABLED: "true"
+      PLAYMATCH_API_ENABLED: "true"
+
+      # ---- 按需求明确禁用的数据源 ----
+      # LaunchBox：会全量下载本地 XML 库，产生无意义的磁盘/内存开销
+      LAUNCHBOX_API_ENABLED: "false"
+      # MobyGames：避免引入额外付费 API 依赖
+      MOBYGAMES_API_KEY: ""
+      # TheGamesDB：本次 4 平台无收益
+      TGDB_API_ENABLED: "false"
+      # RetroAchievements / ScreenScraper：成就源与复古向刮削源，不纳入本次范围
+      RETROACHIEVEMENTS_API_KEY: ""
+      SCREENSCRAPER_USER: ""
+      SCREENSCRAPER_PASSWORD: ""
+
+      # ---- Switch TitleDB 自动更新计划任务 ----
+      # 每日 04:00 拉取最新 TitleID 库，用于解析 [0100XXXXXXXXXXXX] 与本体/补丁/DLC 归类
+      ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: "true"
+      SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: "0 4 * * *"
+
+      # ---- 定时全量重扫 + 目录变更自动重扫 ----
+      ENABLE_SCHEDULED_RESCAN: "true"
+      SCHEDULED_RESCAN_CRON: "0 3 * * *"
+      ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: "true"
+      RESCAN_ON_FILESYSTEM_CHANGE_DELAY: "5"   # 单位：分钟
+
+      # ---- 扫描并发 ----
+      SCAN_WORKERS: "4"
+      WEB_SERVER_CONCURRENCY: "4"
+
+    volumes:
+      - romm_resources:/romm/resources     # 抓取到的素材（不要手动改）
+      - romm_assets:/romm/assets           # 存档 / 即时存档
+      - ./library:/romm/library            # 游戏库根目录，布局见 NAMING-CONVENTIONS.md
+      - ./config:/romm/config              # 存放 config.yml
+
+    ports:
+      - "${ROMM_HTTP_PORT:-8080}:8080"
+
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+      romm-cache:
+        condition: service_healthy
+        restart: true
+
+  # ── 2. 数据库：MariaDB ─────────────────────────────────────────────────────
+  romm-db:
+    image: mariadb:11
+    container_name: romm-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: romm
+      MARIADB_USER: romm-user
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 3. 缓存 / 会话层：Valkey（Redis 协议兼容，可替换为 redis:7-alpine）─────
+  romm-cache:
+    image: valkey/valkey:8-alpine
+    container_name: romm-cache
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --requirepass
+      - ${VALKEY_PASSWORD}
+      - --appendonly
+      - "yes"
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD}
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5

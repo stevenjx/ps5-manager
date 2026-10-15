@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  console-manager:
+    build: .
+    image: console-manager:latest
+    container_name: console-manager
+    restart: unless-stopped
+    # 必须使用 host 网络：
+    # 1. 确保局域网 12800 端口设备发现 (Discovery) 正常透传
+    # 2. 避免桥接网桥转发损耗，实现千兆/万兆满速吞吐传输
+    network_mode: "host"
+    environment:
+      - PORT=8280
+      - CONFIG_DIR=/config
+      - PKG_DIR=/packages
+      # 留空或设置为 NAS 的实际局域网 IP
+      - EXTERNAL_IP=
+      # 游戏目录实时监测间隔（新增/删除文件后自动更新），默认 5s；设为 0 可关闭
+      - WATCH_INTERVAL=5s
+
+      # ================= 元数据刮削 =================
+      # 以下 4 个数据源【无需任何 API Key】即可工作：
+      #   本地 gamelist.xml（中文简介/译名）· Switch TitleDB · Hasheous · Playmatch
+      # 关闭在线刮削（仅用本地 gamelist.xml）：
+      - METADATA_ENABLED=true
+      - HASHEOUS_API_ENABLED=true
+      - PLAYMATCH_API_ENABLED=true
+      # Switch TitleDB 官方库约 90MB，首次使用会下载并缓存 7 天；不想下载设为 false
+      - SWITCH_TITLEDB_ENABLED=true
+
+      # ---- 以下两项为【可选增强】，留空不影响刮削 ----
+      # IGDB：官方简介 / 发售日期 / 开发商 / 发行商 / 竖版封面 / 截图
+      # 申请：https://dev.twitch.tv/console/apps（需 Twitch 账号 + 手机 2FA）
+      - IGDB_CLIENT_ID=
+      - IGDB_CLIENT_SECRET=
+      # SteamGridDB：高清封面 / 透明 Logo / Hero 背景图
+      # 申请：https://www.steamgriddb.com/profile/preferences/api
+      - STEAMGRIDDB_API_KEY=
+
+      # ---- 刮削行为（可选）----
+      # 语言优先级（RomM 官方枚举：ar da de el en es fi fr it ja ko nl no pl pt ru sr sv zh）
+      - METADATA_LANGUAGE=zh,en
+      # 地区优先级（cn us eu jp wor 等）
+      - METADATA_REGION=cn,us,eu,jp,wor
+      # 并发刮削数
+      - METADATA_CONCURRENCY=4
+      # 单次外部请求超时
+      - METADATA_TIMEOUT=20s
+      # TitleDB 等大文件缓存目录（相对 CONFIG_DIR）
+      - METADATA_CACHE_DIR=meta-cache
+    volumes:
+      # 持久化数据库配置与自定义封面
+      - ./config:/config
+      # 挂载 NAS 共享存储池根路径（只读即可，确保免打字文件浏览器能直接索引）
+      # 群晖 DSM 默认共享文件夹位于 /volume1
+      # 威联通 QNAP 默认共享文件夹位于 /share
+      - /:/packages:ro
