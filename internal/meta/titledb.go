@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
@@ -120,7 +121,14 @@ func (t *TitleDB) Lookup(ctx context.Context, titleIDs []string) (map[string]Tit
 	return out, nil
 }
 
-// lookupInSource 在单个数据源中流式查找
+// lookupInSource 在单个数据源中流式查找。
+//
+// 重要：blawar/titledb 的顶层键是 **nsuId**（14 位十进制，如 70010000000025），
+// 而不是 Switch 的 16 位十六进制 TitleID；后者位于条目的 `id` 字段
+// （如 01007EF00011E000）。因此不能按键筛选，必须检查条目内容。
+//
+// 为兼顾正确性与性能（US.en.json 约 90MB / 3.7 万条），这里先用
+// bytes.Contains 对原始 JSON 片段做子串预筛，只有疑似命中的条目才做完整解析。
 func (t *TitleDB) lookupInSource(ctx context.Context, rawURL string, want map[string]bool) (map[string]TitleDBEntry, error) {
 	f, err := t.ensureCached(ctx, rawURL)
 	if err != nil {
@@ -152,25 +160,55 @@ func (t *TitleDB) lookupInSource(ctx context.Context, rawURL string, want map[st
 			return out, fmt.Errorf("TitleDB 读取键失败: %w", err)
 		}
 		key, _ := keyTok.(string)
-		normKey := normalizeTitleID(key)
 
-		if !want[normKey] {
-			// 不需要的条目直接跳过（RawMessage 仅持有字节，不建 map）
-			var skip json.RawMessage
-			if err := dec.Decode(&skip); err != nil {
-				return out, fmt.Errorf("TitleDB 跳过节失败: %w", err)
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return out, fmt.Errorf("TitleDB 读取条目失败: %w", err)
+		}
+
+		// 兼容「键本身就是 TitleID」的数据源（部分第三方导出如此）
+		if normKey := normalizeTitleID(key); normKey != "" && want[normKey] {
+			if m := decodeRawMap(raw); m != nil {
+				out[normKey] = titleDBEntryFromMap(normKey, m)
 			}
 			continue
 		}
 
-		// 命中的条目解析为 map，容错性最好
-		var raw map[string]any
-		if err := dec.Decode(&raw); err != nil {
-			return out, fmt.Errorf("TitleDB 解析条目失败: %w", err)
+		// 常规路径：键是 nsuId，真正的 TitleID 在条目的 id 字段里。
+		// 先用子串预筛，避免对全部 3.7 万条做完整解析。
+		if !rawContainsAny(raw, want) {
+			continue
 		}
-		out[normKey] = titleDBEntryFromMap(normKey, raw)
+		m := decodeRawMap(raw)
+		if m == nil {
+			continue
+		}
+		id := normalizeTitleID(mapStr(m, "id"))
+		if id == "" || !want[id] {
+			continue
+		}
+		out[id] = titleDBEntryFromMap(id, m)
 	}
 	return out, nil
+}
+
+// rawContainsAny 判断原始 JSON 片段是否包含任一目标 TitleID（子串预筛）
+func rawContainsAny(raw []byte, want map[string]bool) bool {
+	for id := range want {
+		if bytes.Contains(raw, []byte(id)) {
+			return true
+		}
+	}
+	return false
+}
+
+// decodeRawMap 把原始 JSON 片段解析为 map（失败返回 nil）
+func decodeRawMap(raw json.RawMessage) map[string]any {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil
+	}
+	return m
 }
 
 // ensureCached 返回可读的本地文件句柄，必要时先下载并缓存

@@ -14,6 +14,8 @@ const (
 	DefaultPlaymatchURL = "https://playmatch.retrorealm.dev/api/v2"
 	// DefaultSwitchTitleDBURL 来自 RomM backend/tasks/scheduled/update_switch_titledb.py
 	DefaultSwitchTitleDBURL = "https://raw.githubusercontent.com/blawar/titledb/master/US.en.json"
+	// DefaultBangumiURL 番组计划（bgm.tv）官方 API，免 Key，提供中文简介
+	DefaultBangumiURL = "https://api.bgm.tv"
 )
 
 // Config 元数据刮削配置。
@@ -44,6 +46,14 @@ type Config struct {
 	// 官方 US.en.json 约 90MB，首次使用会下载并缓存 7 天，因此允许关闭。
 	TitleDBEnabled bool
 
+	// BangumiEnabled 是否启用 Bangumi（bgm.tv）中文元数据源。
+	// 免 API Key，提供简体中文名 / 中文简介 / 发售日 / 开发商 / 发行商 / 评分，
+	// 是无 IGDB 凭证时获取中文简介的主要途径，默认开启。
+	BangumiEnabled bool
+
+	// BangumiURL Bangumi API 基址（可覆盖，便于自建或测试）
+	BangumiURL string
+
 	// Language 语言优先级（RomM LANGUAGES 的 ISO 码）
 	Language []string
 	// Region 地区优先级（RomM REGION_NAME_TO_PROVIDER_SHORTCODE 的 shortcode）
@@ -66,8 +76,10 @@ func DefaultConfig() Config {
 		HasheousEnabled:   true,
 		PlaymatchEnabled:  true,
 		TitleDBEnabled:    true,
+		BangumiEnabled:    true,
 		HasheousURL:       DefaultHasheousURL,
 		PlaymatchURL:      DefaultPlaymatchURL,
+		BangumiURL:        DefaultBangumiURL,
 		SwitchTitleDBURLs: []string{DefaultSwitchTitleDBURL},
 		Language:          []string{"zh", "en"},
 		Region:            []string{"cn", "us", "eu", "jp", "wor"},
@@ -91,7 +103,11 @@ func ConfigFromEnv() Config {
 	c.HasheousEnabled = envBool("HASHEOUS_API_ENABLED", c.HasheousEnabled)
 	c.PlaymatchEnabled = envBool("PLAYMATCH_API_ENABLED", c.PlaymatchEnabled)
 	c.TitleDBEnabled = envBool("SWITCH_TITLEDB_ENABLED", c.TitleDBEnabled)
+	c.BangumiEnabled = envBool("BANGUMI_ENABLED", c.BangumiEnabled)
 
+	if v := strings.TrimSpace(os.Getenv("BANGUMI_API_URL")); v != "" {
+		c.BangumiURL = strings.TrimRight(v, "/")
+	}
 	if v := strings.TrimSpace(os.Getenv("HASHEOUS_API_URL")); v != "" {
 		c.HasheousURL = strings.TrimRight(v, "/")
 	}

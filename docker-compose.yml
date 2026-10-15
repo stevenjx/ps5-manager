@@ -20,10 +20,13 @@ services:
       - WATCH_INTERVAL=5s
 
       # ================= 元数据刮削 =================
-      # 以下 4 个数据源【无需任何 API Key】即可工作：
-      #   本地 gamelist.xml（中文简介/译名）· Switch TitleDB · Hasheous · Playmatch
+      # 以下 5 个数据源【无需任何 API Key】即可工作（含中文名与中文简介）：
+      #   本地 gamelist.xml（中文简介/译名）· Bangumi 番组计划（中文名/中文简介）
+      #   · Switch TitleDB（Switch 官方数据）· Hasheous · Playmatch
       # 关闭在线刮削（仅用本地 gamelist.xml）：
       - METADATA_ENABLED=true
+      # Bangumi（bgm.tv）：免 Key 的简体中文元数据源，无 IGDB 凭证时的中文简介主要来源
+      - BANGUMI_ENABLED=true
       - HASHEOUS_API_ENABLED=true
       - PLAYMATCH_API_ENABLED=true
       # Switch TitleDB 官方库约 90MB，首次使用会下载并缓存 7 天；不想下载设为 false

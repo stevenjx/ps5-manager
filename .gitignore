@@ -1,6 +1,12 @@
+# =============================================================================
 # Build artifacts
-server
-ps5-manager
+# -----------------------------------------------------------------------------
+# 注意：必须用前导斜杠锚定到仓库根目录。
+# 若写成裸 `server`，会连 `internal/server/` 整个源码目录一起忽略掉
+# （曾因此导致 HTTP 处理与前端 UI 代码未被提交）。
+# =============================================================================
+/server
+/ps5-manager
 *.exe
 *.dll
 *.so
@@ -17,12 +23,14 @@ __debug_bin*
 go.work
 
 # Dependencies (if vendor/ is used)
-vendor/
+/vendor/
 
-# Runtime data directories (user content, not source)
-config/
-covers/
-meta-cache/
+# =============================================================================
+# Runtime data (用户数据，非源码) —— 同样锚定到根目录
+# =============================================================================
+/config/
+/covers/
+/meta-cache/
 *.db
 *.db-shm
 *.db-wal
@@ -42,6 +50,6 @@ desktop.ini
 # WorkBuddy
 .workbuddy-ai/
 
-# User uploads / test data
-test_games/
-test_config/
+# 用户上传 / 测试数据
+/test_games/
+/test_config/

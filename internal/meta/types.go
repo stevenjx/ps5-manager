@@ -21,6 +21,7 @@ type Source string
 const (
 	SourceGamelist  Source = "gamelist"  // 本地 gamelist.xml（中文优先）
 	SourceTitleDB   Source = "titledb"   // Switch TitleDB（官方 eShop 数据）
+	SourceBangumi   Source = "bangumi"   // Bangumi 番组计划（免 Key 中文元数据）
 	SourceHasheous  Source = "hasheous"  // Hasheous 哈希匹配（免 Key）
 	SourcePlaymatch Source = "playmatch" // Playmatch 哈希匹配（免 Key）
 	SourceIGDB      Source = "igdb"      // IGDB 官方元数据
