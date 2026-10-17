@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ps5-manager/internal/installer"
@@ -458,6 +459,160 @@ func (h *ServerHandler) handleTVIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write(raw)
+}
+
+// ---------- 批量补 Hero 图（SteamGridDB） ----------
+
+// heroJobState 批量补图任务的进度（内存态，单实例即可）
+type heroJobState struct {
+	mu      sync.Mutex
+	running bool
+	total   int
+	done    int
+	matched int
+	failed  int
+	skipped int
+	current string
+	errMsg  string
+}
+
+var heroJob heroJobState
+
+// handleTVFetchHeroes POST /api/tv/artwork/heroes
+//
+// 为缺少 16:9 横版背景的游戏，按名称向 SteamGridDB 取一张 Hero 图并写回
+// art_hero。SteamGridDB 只提供图片，因此不会改动简介等文字字段。
+// 请求体：{"force": false} —— force=true 时连已有 Hero 的也重新取。
+func (h *ServerHandler) handleTVFetchHeroes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if h.meta == nil || !h.meta.SGDBEnabled() {
+		writeTVJSONStatus(w, http.StatusBadRequest, map[string]any{
+			"error":   "sgdb_not_configured",
+			"message": "请先在「元数据」里填写 SteamGridDB API Key",
+		})
+		return
+	}
+
+	var req struct {
+		Force bool `json:"force"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	heroJob.mu.Lock()
+	if heroJob.running {
+		heroJob.mu.Unlock()
+		writeTVJSONStatus(w, http.StatusConflict, map[string]any{"error": "already_running"})
+		return
+	}
+	heroJob = heroJobState{running: true}
+	heroJob.mu.Unlock()
+
+	go h.runHeroJob(req.Force)
+
+	writeTVJSON(w, map[string]any{"status": "started"})
+}
+
+// handleTVHeroStatus GET /api/tv/artwork/status
+func (h *ServerHandler) handleTVHeroStatus(w http.ResponseWriter, r *http.Request) {
+	heroJob.mu.Lock()
+	snap := map[string]any{
+		"running": heroJob.running,
+		"total":   heroJob.total,
+		"done":    heroJob.done,
+		"matched": heroJob.matched,
+		"failed":  heroJob.failed,
+		"skipped": heroJob.skipped,
+		"current": heroJob.current,
+		"error":   heroJob.errMsg,
+	}
+	heroJob.mu.Unlock()
+	writeTVJSON(w, snap)
+}
+
+// runHeroJob 实际执行批量补图
+func (h *ServerHandler) runHeroJob(force bool) {
+	defer func() {
+		heroJob.mu.Lock()
+		heroJob.running = false
+		heroJob.current = ""
+		heroJob.mu.Unlock()
+	}()
+
+	targets, err := h.store.ListMetaTargets(nil, false, 0)
+	if err != nil {
+		heroJob.mu.Lock()
+		heroJob.errMsg = err.Error()
+		heroJob.mu.Unlock()
+		return
+	}
+
+	heroJob.mu.Lock()
+	heroJob.total = len(targets)
+	heroJob.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	for _, t := range targets {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		meta, _ := h.store.GetMeta(t.ID)
+		if !force && meta != nil && strings.TrimSpace(meta.Hero) != "" {
+			heroJob.mu.Lock()
+			heroJob.done++
+			heroJob.skipped++
+			heroJob.mu.Unlock()
+			continue
+		}
+
+		name := heroQueryName(t, meta)
+		heroJob.mu.Lock()
+		heroJob.current = name
+		heroJob.mu.Unlock()
+
+		url, ferr := h.meta.FetchHero(ctx, name)
+		if ferr != nil {
+			heroJob.mu.Lock()
+			heroJob.done++
+			heroJob.failed++
+			heroJob.errMsg = ferr.Error()
+			heroJob.mu.Unlock()
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+
+		if url != "" {
+			if serr := h.store.SetMetaHero(t.ID, url); serr == nil {
+				heroJob.mu.Lock()
+				heroJob.matched++
+				heroJob.mu.Unlock()
+			}
+		}
+
+		heroJob.mu.Lock()
+		heroJob.done++
+		heroJob.mu.Unlock()
+
+		// SteamGridDB 对单 IP 有频率限制，保守限速
+		time.Sleep(320 * time.Millisecond)
+	}
+}
+
+// heroQueryName 选择用于 SteamGridDB 检索的名称。
+// 优先用展示名（通常是官方英文名），中文名对 SGDB 命中率低，放最后兜底。
+func heroQueryName(t store.MetaTarget, meta *store.Meta) string {
+	name := firstNonEmpty(t.DisplayName, t.Title)
+	if meta != nil {
+		name = firstNonEmpty(name, meta.NameCN)
+	}
+	return name
 }
 
 // ---------- 小工具 ----------

@@ -231,6 +231,33 @@ func (p *Pipeline) hashMatch(ctx context.Context, t Target, out *Result, errs *[
 	return igdbID
 }
 
+// SGDBEnabled 是否配置了 SteamGridDB（批量补 Hero 图需要它）
+func (p *Pipeline) SGDBEnabled() bool {
+	return p != nil && p.sgdb.Enabled()
+}
+
+// FetchHero 按游戏名从 SteamGridDB 取一张 16:9 横版 Hero 背景图。
+//
+// 仅用于「批量补 Hero 图」功能：SteamGridDB 只提供图片，不返回任何文字，
+// 因此这里只取 Artwork.Hero，不触碰其他字段。
+func (p *Pipeline) FetchHero(ctx context.Context, name string) (string, error) {
+	if p == nil || !p.sgdb.Enabled() {
+		return "", errors.New("未配置 SteamGridDB API Key")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", nil
+	}
+	res, err := p.sgdb.FetchForName(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(res.Artwork.Hero), nil
+}
+
 // FetchImage 下载一张图片（供上层把刮削到的封面缓存到本地封面目录复用）。
 // 返回的数据已校验确为图片格式。
 func FetchImage(ctx context.Context, cfg Config, rawURL string) ([]byte, error) {

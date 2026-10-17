@@ -200,6 +200,16 @@ const indexHTML = `<!DOCTYPE html>
             <button onclick="startScrape(true)" class="btn btn-ghost">全部重新刮削</button>
           </div>
         </div>
+
+        <div class="modal-section">
+          <label class="modal-label">TV 大屏素材<span class="opt">需要 SteamGridDB API Key</span></label>
+          <div id="heroProgress" class="meta-progress hidden"></div>
+          <div class="meta-actions">
+            <button onclick="fetchHeroes(false)" class="btn btn-secondary">补全 Hero 背景图</button>
+            <button onclick="fetchHeroes(true)" class="btn btn-ghost">全部重新获取</button>
+          </div>
+          <p class="field-hint">为缺少 16:9 横版背景的游戏，按名称从 SteamGridDB 取图并写回 <code>art_hero</code>。只补图片，不改动简介等文字字段；已有限速，约每 3 秒 10 张。</p>
+        </div>
       </div>
       <div class="modal-actions">
         <button onclick="closeMetaModal()" class="btn btn-ghost">关闭</button>
@@ -1231,9 +1241,62 @@ const indexHTML = `<!DOCTYPE html>
       }
     }
 
+    /* ============== 批量补 Hero 背景图（SteamGridDB） ============== */
+    let heroTimer = null;
+
+    async function fetchHeroes(force) {
+      if (force && !confirm('将重新获取全部游戏的 Hero 背景图，耗时较久。\n继续？')) return;
+      try {
+        const r = await fetch('/api/tv/artwork/heroes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: !!force })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          alert(data.message || (data.error === 'sgdb_not_configured' ? '请先填写 SteamGridDB API Key' : '启动失败'));
+          return;
+        }
+        pollHeroes();
+      } catch (e) {
+        alert('请求异常: ' + e);
+      }
+    }
+
+    async function pollHeroes() {
+      if (heroTimer) return;
+      const box = document.getElementById('heroProgress');
+      const tick = async () => {
+        try {
+          const r = await fetch('/api/tv/artwork/status');
+          const s = await r.json();
+          if (!box) return;
+          if (!s.running && !s.total) {
+            box.classList.add('hidden');
+            clearInterval(heroTimer); heroTimer = null;
+            return;
+          }
+          box.classList.remove('hidden');
+          const pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+          box.innerHTML =
+            '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+            '<div class="progress-info"><span class="pct">' + pct + '% (' + s.done + '/' + s.total + ')</span>' +
+            '<span>新增 ' + s.matched + ' · 跳过 ' + s.skipped + ' · 失败 ' + s.failed + '</span></div>' +
+            '<div class="meta-current">' + (s.current || '') + '</div>';
+          if (!s.running) {
+            clearInterval(heroTimer); heroTimer = null;
+            if (s.matched > 0 && typeof loadGames === 'function') loadGames();
+          }
+        } catch (e) {
+          clearInterval(heroTimer); heroTimer = null;
+        }
+      };
+      await tick();
+      heroTimer = setInterval(tick, 1500);
+    }
+
     // 免 Key 数据源（无需任何凭证即可工作）
     const FREE_SOURCES = { gamelist: 1, titledb: 1, hasheous: 1, playmatch: 1 };
-
     function renderMetaStatus(data) {
       const box = document.getElementById('metaStatusBox');
       const p = data.pipeline;

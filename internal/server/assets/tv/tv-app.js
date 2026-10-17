@@ -218,7 +218,14 @@ function renderDiscover() {
 
   const byRating = [...state.games].sort((a, b) => b.rating - a.rating).slice(0, 14);
   const byYear = [...state.games].sort((a, b) => b.year - a.year).slice(0, 14);
-  const ps5 = state.games.filter((g) => g.platform === "PS5").slice(0, 14);
+  // 每个平台各自成轨，保证 PS3 / Switch 也能在首页出现
+  const platformRails = platformStats()
+    .filter((p) => p.count >= 2)
+    .map((p) => ({
+      title: p.name === "PS3" ? "PS3 经典" : p.name + " 专区",
+      items: state.games.filter((g) => (g.platform || "").toUpperCase() === p.name).slice(0, 14),
+      scope: "rail-" + p.name.toLowerCase(),
+    }));
 
   el.view.innerHTML = `
     <section class="spotlight">
@@ -254,7 +261,7 @@ function renderDiscover() {
     </section>
     ${rail("高分推荐", byRating, "rail-rating")}
     ${rail("最新入库", byYear, "rail-recent")}
-    ${rail("PS5 专区", ps5, "rail-ps5")}
+    ${platformRails.map((r) => rail(r.title, r.items, r.scope)).join("")}
   `;
 
   setBackdrop(hero.backdrop_url, !hero.has_backdrop);
@@ -322,11 +329,35 @@ function cardHTML(g, scope) {
     </div>`;
 }
 
+/* ---------- 平台统计 ---------- */
+
+// 按实际数据统计各平台数量，避免硬编码平台列表与真实库不一致
+function platformStats() {
+  const order = ["PS5", "PS4", "PS3", "SWITCH"];
+  const counts = new Map();
+  for (const g of state.games) {
+    const p = (g.platform || "OTHER").toUpperCase();
+    counts.set(p, (counts.get(p) || 0) + 1);
+  }
+  const known = order.filter((p) => counts.has(p));
+  const extra = [...counts.keys()].filter((p) => !order.includes(p)).sort();
+  return [...known, ...extra].map((p) => ({ name: p, count: counts.get(p) }));
+}
+
 /* ---------- Browse ---------- */
 
 function renderBrowse() {
-  const platforms = ["ALL", "PS5", "PS4", "PS3", "SWITCH"];
-  const genres = ["ALL", ...new Set(state.games.map((g) => g.category).filter(Boolean))].slice(0, 8);
+  const stats = platformStats();
+  const platformNames = new Set(stats.map((p) => p.name));
+  const platforms = [{ name: "ALL", count: state.games.length }, ...stats];
+
+  const genreSet = new Set();
+  for (const g of state.games) {
+    const c = g.category;
+    if (!c || platformNames.has(c)) continue; // 与平台名重复的「类型」不单独成芯片
+    genreSet.add(c);
+  }
+  const genres = ["ALL", ...[...genreSet].slice(0, 8)];
 
   const filtered = state.games.filter((g) => {
     if (state.filter.platform !== "ALL" && g.platform !== state.filter.platform) return false;
@@ -340,8 +371,10 @@ function renderBrowse() {
       ${platforms
         .map(
           (p) =>
-            `<button class="chip${state.filter.platform === p ? " is-active" : ""}" data-focus="pf-${p}"
-                     data-scope="filters" data-action="filter" data-kind="platform" data-value="${p}">${p === "ALL" ? "全部平台" : p}</button>`
+            `<button class="chip${state.filter.platform === p.name ? " is-active" : ""}" data-focus="pf-${p.name}"
+                     data-scope="filters" data-action="filter" data-kind="platform" data-value="${p.name}">${
+              p.name === "ALL" ? "全部平台" : p.name
+            }<span class="chip-count">${p.count}</span></button>`
         )
         .join("")}
       ${genres

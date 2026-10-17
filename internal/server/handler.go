@@ -79,6 +79,8 @@ func (h *ServerHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/tv/pages/", h.handleTVPage)
 	mux.HandleFunc("/api/tv/install", h.handleTVInstall)
 	mux.HandleFunc("/api/tv/tasks", h.handleTVTasks)
+	mux.HandleFunc("/api/tv/artwork/heroes", h.handleTVFetchHeroes)
+	mux.HandleFunc("/api/tv/artwork/status", h.handleTVHeroStatus)
 
 	// TV 前端（内嵌单页应用）
 	mux.HandleFunc("/tv", h.handleTVIndex)

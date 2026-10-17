@@ -88,6 +88,9 @@ http://<主机IP>:8080/tv
 - **焦点视觉**：纯白发光描边 + 卡片 1.07 倍缩放 + 旋转高光，远距离可辨
 - **音效**：焦点移动 / 确认 / 返回 / 越界均有独立音效（取自 Overdrive 音效素材）
 - **无横版素材时**：自动用竖版封面做模糊填充 + 右侧海报位，避免硬裁导致画面破碎
+- **批量补 Hero 图**：桌面端「元数据 → TV 大屏素材 → 补全 Hero 背景图」，按游戏名从 SteamGridDB
+  取 16:9 横版图并写回 `art_hero`（只补图片，不改文字字段；限速约 3 张/秒）
+- **平台筛选**：芯片按实际库动态生成并显示数量，PS3 / Switch 与 PS5 / PS4 同等对待
 
 ### 按键映射
 
@@ -348,6 +351,8 @@ go build -o ps5-manager ./cmd/server
 | `GET` | `/api/tv/pages/{title_id}` | 详情：简介、厂商、包清单（本体 / 补丁 / DLC） |
 | `POST` | `/api/tv/install` | `{"title_id","package_type":"all\|base\|patch","ps5_ip"}` → 异步下发安装 |
 | `GET` | `/api/tv/tasks` | 安装任务列表（卡片进度条轮询） |
+| `POST` | `/api/tv/artwork/heroes` | 批量补 Hero 背景图 `{"force": false}` |
+| `GET` | `/api/tv/artwork/status` | 补图任务进度 |
 | `GET` | `/tv` | TV 端单页应用（支持 `#browse`、`#favorites`、`#game/<title_id>` 深链） |
 
 桌面端支持深链，便于排查与分享：`?platform=PS5`、`?game=12`、`?meta=1`。

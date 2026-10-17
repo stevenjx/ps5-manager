@@ -66,6 +66,16 @@ type MetaTarget struct {
 	FileSize    int64
 }
 
+// SetMetaHero 只更新横版背景图字段（供「批量补 Hero 图」使用，
+// 不覆盖其他已刮削字段）。
+func (s *Store) SetMetaHero(id int64, url string) error {
+	_, err := s.db.Exec(
+		`UPDATE packages SET art_hero = ?, meta_updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		url, id,
+	)
+	return err
+}
+
 // UpdateMetadata 写入刮削结果
 func (s *Store) UpdateMetadata(id int64, m *Meta) error {
 	if m == nil {
