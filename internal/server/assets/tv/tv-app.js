@@ -218,11 +218,11 @@ function renderDiscover() {
 
   const byRating = [...state.games].sort((a, b) => b.rating - a.rating).slice(0, 14);
   const byYear = [...state.games].sort((a, b) => b.year - a.year).slice(0, 14);
-  // 每个平台各自成轨，保证 PS3 / Switch 也能在首页出现
+  // PS5 / PS4 各自成轨（TV 端只展示这两个平台，见 TV_PLATFORMS）
   const platformRails = platformStats()
-    .filter((p) => p.count >= 2)
+    .filter((p) => p.count >= 1)
     .map((p) => ({
-      title: p.name === "PS3" ? "PS3 经典" : p.name + " 专区",
+      title: p.name + " 专区",
       items: state.games.filter((g) => (g.platform || "").toUpperCase() === p.name).slice(0, 14),
       scope: "rail-" + p.name.toLowerCase(),
     }));
@@ -306,7 +306,7 @@ function metaLine(g) {
 
 function cardHTML(g, scope) {
   const fav = state.favorites.has(g.id);
-  const platClass = g.platform === "PS5" ? "is-ps5" : g.platform === "SWITCH" ? "is-switch" : "";
+  const platClass = g.platform === "PS5" ? "is-ps5" : "";
   const progress = progressFor(g.id);
   return `
     <div class="card" data-focus="card-${esc(g.id)}" data-scope="${esc(scope)}" data-action="open"
@@ -331,17 +331,21 @@ function cardHTML(g, scope) {
 
 /* ---------- 平台统计 ---------- */
 
-// 按实际数据统计各平台数量，避免硬编码平台列表与真实库不一致
+// TV 端只服务 PS5 / PS4（与后端 tvPlatforms 白名单保持一致）。
+// 后端已过滤，这里再兜一层，避免旧缓存或接口变更把其它平台带进来。
+const TV_PLATFORMS = ["PS5", "PS4"];
+
 function platformStats() {
-  const order = ["PS5", "PS4", "PS3", "SWITCH"];
   const counts = new Map();
   for (const g of state.games) {
-    const p = (g.platform || "OTHER").toUpperCase();
+    const p = (g.platform || "").toUpperCase();
+    if (!TV_PLATFORMS.includes(p)) continue;
     counts.set(p, (counts.get(p) || 0) + 1);
   }
-  const known = order.filter((p) => counts.has(p));
-  const extra = [...counts.keys()].filter((p) => !order.includes(p)).sort();
-  return [...known, ...extra].map((p) => ({ name: p, count: counts.get(p) }));
+  return TV_PLATFORMS.filter((p) => counts.has(p)).map((p) => ({
+    name: p,
+    count: counts.get(p),
+  }));
 }
 
 /* ---------- Browse ---------- */
@@ -677,15 +681,25 @@ function openDrawer() {
   const drawer = document.createElement("aside");
   drawer.className = "drawer is-open";
   drawer.id = "drawer";
-  const genres = [...new Set(state.games.map((g) => g.category).filter(Boolean))];
+  const stats = platformStats();
+  const platformNames = new Set(stats.map((p) => p.name));
+  const genres = [
+    ...new Set(
+      state.games
+        .map((g) => g.category)
+        .filter((c) => c && !platformNames.has(c))
+    ),
+  ];
   drawer.innerHTML = `
     <h3>筛选</h3>
     <div class="drawer-group"><span>平台</span>
-      ${["ALL", "PS5", "PS4", "PS3", "SWITCH"]
+      ${[{ name: "ALL", count: state.games.length }, ...stats]
         .map(
           (p) =>
-            `<button class="chip${state.filter.platform === p ? " is-active" : ""}" data-focus="dw-pf-${p}"
-                     data-scope="drawer" data-action="filter" data-kind="platform" data-value="${p}">${p === "ALL" ? "全部" : p}</button>`
+            `<button class="chip${state.filter.platform === p.name ? " is-active" : ""}" data-focus="dw-pf-${p.name}"
+                     data-scope="drawer" data-action="filter" data-kind="platform" data-value="${p.name}">${
+              p.name === "ALL" ? "全部" : p.name
+            }<span class="chip-count">${p.count}</span></button>`
         )
         .join("")}
     </div>

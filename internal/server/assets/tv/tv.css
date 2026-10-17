@@ -267,7 +267,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   backdrop-filter: blur(0.3rem);
 }
 .badge.is-ps5 { background: rgba(0, 112, 209, 0.9); }
-.badge.is-switch { background: rgba(230, 0, 18, 0.9); }
 
 .card-progress {
   position: absolute; left: 0; right: 0; bottom: 0; height: 0.22rem;

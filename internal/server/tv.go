@@ -26,6 +26,21 @@ import (
 //   - 列表一次性批量取元数据，避免 N+1 查询；
 //   - 图片一律走既有的 /api/v1/games/{id}/... 代理端点（带本地缓存与回退）。
 
+// tvPlatforms 是 TV 大屏端允许展示的平台白名单。
+//
+// TV 端只服务于 PS5 / PS4 客厅场景：PS3 与 Switch 的 ROM 体积、封面比例、
+// 元数据来源都不同，混在同一个大屏界面里会破坏列表一致性与手柄浏览体验，
+// 因此统一在数据源层过滤，catalog / spotlight / 详情页都不会出现其它平台。
+var tvPlatforms = map[string]bool{
+	"PS5": true,
+	"PS4": true,
+}
+
+// tvPlatformAllowed 判断某个平台是否属于 TV 端白名单（大小写不敏感）。
+func tvPlatformAllowed(platform string) bool {
+	return tvPlatforms[strings.ToUpper(strings.TrimSpace(platform))]
+}
+
 // tvGame 目录中的一款游戏（对应 Overdrive catalog 的一项）
 type tvGame struct {
 	ID           string   `json:"id"`            // TitleID，Overdrive 用它做主键
@@ -108,6 +123,10 @@ func (h *ServerHandler) buildTVGames() ([]tvGame, error) {
 	out := make([]tvGame, 0, len(games))
 	for _, g := range games {
 		if g.Category != "" && g.Category != "game" {
+			continue
+		}
+		// 平台白名单：TV 端只展示 PS5 / PS4
+		if !tvPlatformAllowed(g.Platform) {
 			continue
 		}
 		if lerr == nil && !existIDs[g.ID] {
@@ -267,6 +286,13 @@ func (h *ServerHandler) handleTVPage(w http.ResponseWriter, r *http.Request) {
 		base = &pkgs[0]
 	}
 
+	// 深链守卫：TV 端不展示白名单外的平台（PS3 / Switch），直接 404，
+	// 避免通过 #game/<title_id> 绕过目录过滤看到不该出现的游戏。
+	if !tvPlatformAllowed(base.Platform) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
 	m, _ := h.store.GetMeta(base.ID)
 	games, _ := h.buildTVGames()
 	var g tvGame
@@ -357,14 +383,6 @@ func (h *ServerHandler) handleTVInstall(w http.ResponseWriter, r *http.Request) 
 			ps5IP = strings.TrimSpace(v)
 		}
 	}
-	if ps5IP == "" {
-		writeTVJSONStatus(w, http.StatusBadRequest, map[string]any{
-			"error":       "ps5_not_configured",
-			"message":     "尚未设置 PS5 地址，请先在 TV 端设置里填写",
-			"need_device": true,
-		})
-		return
-	}
 
 	pkgs, err := h.store.GetPackagesByTitleID(req.TitleID)
 	if err != nil || len(pkgs) == 0 {
@@ -389,6 +407,22 @@ func (h *ServerHandler) handleTVInstall(w http.ResponseWriter, r *http.Request) 
 	}
 	if base == nil {
 		http.Error(w, "base package not found", http.StatusNotFound)
+		return
+	}
+
+	// 与目录保持一致：TV 端不下发白名单外平台（PS3 / Switch）的安装任务
+	if !tvPlatformAllowed(base.Platform) {
+		http.Error(w, "platform not supported by tv mode", http.StatusBadRequest)
+		return
+	}
+
+	// 平台校验通过后再检查目标设备：PS5 / PS4 的安装都经由 PS5 主机中转
+	if ps5IP == "" {
+		writeTVJSONStatus(w, http.StatusBadRequest, map[string]any{
+			"error":       "ps5_not_configured",
+			"message":     "尚未设置 PS5 地址，请先在 TV 端设置里填写",
+			"need_device": true,
+		})
 		return
 	}
 
@@ -548,6 +582,16 @@ func (h *ServerHandler) runHeroJob(force bool) {
 		heroJob.mu.Unlock()
 		return
 	}
+
+	// TV 端只展示 PS5 / PS4，补图任务也只处理这两个平台，
+	// 避免把 SteamGridDB 的配额花在 Switch / PS3 的 ROM 上。
+	scoped := make([]store.MetaTarget, 0, len(targets))
+	for _, t := range targets {
+		if tvPlatformAllowed(t.Platform) {
+			scoped = append(scoped, t)
+		}
+	}
+	targets = scoped
 
 	heroJob.mu.Lock()
 	heroJob.total = len(targets)
