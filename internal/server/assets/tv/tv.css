@@ -466,3 +466,29 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .pkg.is-focused { box-shadow: 0 0 0 0.16rem #ffffff, 0 0 1.6rem rgba(255,255,255,.28); }
 .chip.is-focused { box-shadow: 0 0 0 0.16rem #ffffff, 0 0 1.6rem rgba(255,255,255,.28); }
 .btn.is-focused { box-shadow: 0 0 0 0.16rem #ffffff, 0 0 2.2rem rgba(255,255,255,.45); }
+
+/* 详情页截图条 */
+.shots {
+  display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 0.75rem;
+  scrollbar-width: none;
+}
+.shots::-webkit-scrollbar { height: 0; }
+.shot {
+  height: 12.5rem; border-radius: 0.6rem; flex: 0 0 auto;
+  object-fit: cover; background: var(--surface);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0.75rem 1.75rem rgba(0, 0, 0, 0.5);
+}
+
+/* 顶部「管理界面」入口 */
+.manage-link {
+  font-size: 0.8rem; color: var(--muted); text-decoration: none;
+  padding: 0.35rem 0.8rem; border-radius: 999px;
+  border: 0.0625rem solid rgba(255, 255, 255, 0.12);
+  margin-right: 1rem;
+  transition: color 0.2s, border-color 0.2s;
+}
+.manage-link:hover { color: var(--fg); border-color: rgba(255, 255, 255, 0.4); }
+
+/* 标题与网格之间留出焦点缩放的空间，避免放大后压住标题 */
+.page-title { margin-bottom: 2.25rem; }

@@ -23,7 +23,7 @@ const indexHTML = `<!DOCTYPE html>
   <meta name="theme-color" content="#07090e">
   <title>Games Manager</title>
   <!-- 自托管样式，完全摆脱 cdn.tailwindcss.com -->
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=11">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230070d1'/%3E%3Ctext x='50' y='66' text-anchor='middle' font-size='52' font-weight='900' fill='white' font-family='sans-serif'%3EP%3C/text%3E%3C/svg%3E">
 </head>
 <body onclick="closeContextMenu()">
@@ -63,6 +63,7 @@ const indexHTML = `<!DOCTYPE html>
       </div>
 
       <div class="header-actions">
+        <a href="/tv" target="_blank" rel="noopener" class="btn btn-tv" title="打开手柄驱动的大屏界面">▶ TV 大屏模式</a>
         <button onclick="openMetaModal()" class="btn btn-secondary">元数据</button>
         <button onclick="openSettingsModal()" class="btn btn-secondary">目录设置</button>
         <button onclick="triggerScan()" class="btn btn-primary">重新扫描</button>

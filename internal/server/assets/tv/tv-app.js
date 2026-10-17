@@ -21,6 +21,8 @@ const state = {
   history: [],
 };
 
+const ROUTES = ["discover", "browse", "favorites"];
+
 const $ = (sel) => document.querySelector(sel);
 const el = {
   view: $("#view"),
@@ -73,6 +75,8 @@ async function api(path, opts) {
 
 /* --------------------------------------------------------------- 焦点 ---- */
 
+let lastScope = "";
+
 const fc = new FocusController({
   onFocus: (node) => {
     // 焦点落在卡片/Spotlight 项时，切换全屏背景
@@ -80,7 +84,15 @@ const fc = new FocusController({
     if (bg) setBackdrop(bg, node.dataset.backdropCover === "1");
     // Spotlight 列表项聚焦 → 主视觉跟着切换
     if (node.classList.contains("spotlight-item")) showSpotlight(node.dataset.id);
-    playSound("focus");
+
+    // 在滑轨之间纵向跳转时用「翻页」音效，与同一行内移动区分开
+    const scope = node.dataset.scope || "";
+    if (lastScope.startsWith("rail-") && scope.startsWith("rail-") && scope !== lastScope) {
+      playSound("page");
+    } else {
+      playSound("focus");
+    }
+    lastScope = scope;
   },
   onBlocked: () => playSound("error"),
 });
@@ -108,7 +120,7 @@ function syncHash(hash) {
 function parseHash() {
   const h = location.hash.replace(/^#\/?/, "");
   if (h.startsWith("game/")) return { route: "detail", id: decodeURIComponent(h.slice(5)) };
-  if (h === "browse" || h === "discover") return { route: h };
+  if (h === "browse" || h === "discover" || h === "favorites") return { route: h };
   return { route: "discover" };
 }
 
@@ -129,7 +141,7 @@ function back() {
     playSound("back");
     return true;
   }
-  if (state.route === "browse") {
+  if (state.route === "browse" || state.route === "favorites") {
     state.route = "discover";
     syncHash("discover");
     render();
@@ -155,14 +167,27 @@ async function loadCatalog() {
 function render() {
   if (state.route === "discover") renderDiscover();
   else if (state.route === "browse") renderBrowse();
+  else if (state.route === "favorites") renderFavorites();
   else if (state.route === "detail") renderDetail();
   updateTabs();
   renderHints();
 }
 
+// L1 / R1 在三个大类之间循环
+function cycleRoute(step) {
+  const cur = state.route === "detail" ? "browse" : state.route;
+  let i = ROUTES.indexOf(cur);
+  if (i < 0) i = 0;
+  i = (i + step + ROUTES.length) % ROUTES.length;
+  go(ROUTES[i]);
+  playSound("page");
+}
+
 function updateTabs() {
   el.tabs.querySelectorAll(".tab").forEach((t) => {
-    t.classList.toggle("is-active", t.dataset.nav === state.route || (state.route === "detail" && t.dataset.nav === "browse"));
+    const active =
+      t.dataset.nav === state.route || (state.route === "detail" && t.dataset.nav === "browse");
+    t.classList.toggle("is-active", active);
   });
 }
 
@@ -339,6 +364,24 @@ function renderBrowse() {
   fc.reset(filtered.length ? ".grid .card" : '.filterbar .chip');
 }
 
+/* ---------- Favorites ---------- */
+
+function renderFavorites() {
+  const list = state.games.filter((g) => state.favorites.has(g.id));
+  el.view.innerHTML = `
+    <h1 class="page-title">我的收藏</h1>
+    ${
+      list.length
+        ? `<div class="grid">${list.map((g) => cardHTML(g, "grid")).join("")}</div>`
+        : `<div class="empty">还没有收藏。在任意卡片上按 □（键盘 F）即可加入收藏。</div>`
+    }
+  `;
+  bindImages();
+  updateTabs();
+  renderHints();
+  fc.reset(list.length ? ".grid .card" : null);
+}
+
 /* ---------- Detail ---------- */
 
 async function openDetail(id) {
@@ -388,6 +431,23 @@ function renderDetail() {
           </div>
         </div>
       </div>
+
+      ${
+        p.screenshots && p.screenshots.length
+          ? `<section>
+        <h3 class="section-label">官方截图</h3>
+        <div class="shots">
+          ${p.screenshots
+            .slice(0, 10)
+            .map(
+              (_, i) =>
+                `<img class="shot" src="/api/v1/games/${p.game_id}/art?kind=screenshot&i=${i}" alt="" loading="lazy">`
+            )
+            .join("")}
+        </div>
+      </section>`
+          : ""
+      }
 
       <section>
         <h3 class="section-label">游戏简介</h3>
@@ -567,6 +627,8 @@ function renderHints() {
 
   if (state.route === "detail") {
     el.hints.innerHTML = cross.replace("选择", "安装 / 详情") + circle + opt;
+  } else if (state.route === "favorites") {
+    el.hints.innerHTML = cross + sq.replace("收藏", "取消收藏") + circle + lr + opt;
   } else {
     el.hints.innerHTML = cross + tri + sq + circle + lr + opt;
   }
@@ -654,7 +716,7 @@ const hub = new InputHub(async (evt) => {
       case "circle":
         return void back();
       case "triangle":
-        if (state.route !== "detail") {
+        if (state.route === "browse") {
           state.drawerOpen ? closeDrawer() : openDrawer();
         }
         return;
@@ -672,12 +734,10 @@ const hub = new InputHub(async (evt) => {
         return;
       }
       case "l1":
-        go("discover");
-        playSound("page");
+        cycleRoute(-1);
         return;
       case "r1":
-        go("browse");
-        playSound("page");
+        cycleRoute(1);
         return;
     }
   }
@@ -721,6 +781,16 @@ setInterval(tickClock, 20000);
   preloadSounds();
   pollTasks();
 })();
+
+// 浏览器前进/后退、手动改 hash 时同步页面（replaceState 不会触发本事件，故无循环）
+window.addEventListener("hashchange", () => {
+  const h = parseHash();
+  if (h.route === "detail" && h.id) openDetail(h.id);
+  else {
+    state.route = h.route;
+    render();
+  }
+});
 
 // 供调试：控制台可查看当前状态
 window.__tv = { state, fc };

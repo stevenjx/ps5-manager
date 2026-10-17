@@ -57,6 +57,7 @@ type tvPackage struct {
 
 // tvPage 详情页数据
 type tvPage struct {
+	GameID      int64       `json:"game_id"` // 数据库主键，用于 /api/v1/games/{id}/art
 	Game        tvGame      `json:"game"`
 	Summary     string      `json:"summary"`
 	Publisher   string      `json:"publisher"`
@@ -288,7 +289,7 @@ func (h *ServerHandler) handleTVPage(w http.ResponseWriter, r *http.Request) {
 		g.BackdropURL = g.CoverURL
 	}
 
-	page := tvPage{Game: g, Packages: make([]tvPackage, 0, len(pkgs))}
+	page := tvPage{Game: g, GameID: base.ID, Packages: make([]tvPackage, 0, len(pkgs))}
 	if m != nil {
 		page.Summary = m.Summary
 		page.Publisher = m.Publisher
