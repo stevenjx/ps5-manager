@@ -204,7 +204,7 @@ func (h *ServerHandler) buildTVGames() ([]tvGame, error) {
 // ---------- 处理器 ----------
 
 // handleTVCatalog GET /api/tv/catalog
-func (h *ServerHandler) handleTVCatalog(w http.ResponseWriter, r *http.Request) {
+func (h *ServerHandler) handleTVCatalog(w http.ResponseWriter, _ *http.Request) {
 	games, err := h.buildTVGames()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -220,7 +220,7 @@ func (h *ServerHandler) handleTVCatalog(w http.ResponseWriter, r *http.Request) 
 //
 // 返回 5-8 款用于 Discover 顶部 16:9 Banner 轮播的游戏：
 // 优先高评分，其次近期入库，最后用有背景图的游戏补足。
-func (h *ServerHandler) handleTVSpotlight(w http.ResponseWriter, r *http.Request) {
+func (h *ServerHandler) handleTVSpotlight(w http.ResponseWriter, _ *http.Request) {
 	games, err := h.buildTVGames()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -482,13 +482,13 @@ func (h *ServerHandler) handleTVInstall(w http.ResponseWriter, r *http.Request) 
 // handleTVTasks GET /api/tv/tasks
 //
 // 返回内存中的安装任务，供卡片进度条轮询（按 game_id 匹配）。
-func (h *ServerHandler) handleTVTasks(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleTVTasks(w http.ResponseWriter, _ *http.Request) {
 	writeTVJSON(w, map[string]any{"tasks": installer.DefaultTasks.List()})
 }
 
 // handleTVIndex 提供 TV 端单页应用（内嵌 assets/tv/index.html）。
 // 所有 /tv 与 /tv/* 路径都返回同一个 HTML，前端用 History API 做路由。
-func (h *ServerHandler) handleTVIndex(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleTVIndex(w http.ResponseWriter, _ *http.Request) {
 	raw, err := assetsFS.ReadFile("assets/tv/index.html")
 	if err != nil {
 		http.Error(w, "tv ui not built", http.StatusInternalServerError)
@@ -554,7 +554,7 @@ func (h *ServerHandler) handleTVFetchHeroes(w http.ResponseWriter, r *http.Reque
 }
 
 // handleTVHeroStatus GET /api/tv/artwork/status
-func (h *ServerHandler) handleTVHeroStatus(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleTVHeroStatus(w http.ResponseWriter, _ *http.Request) {
 	heroJob.mu.Lock()
 	snap := map[string]any{
 		"running": heroJob.running,

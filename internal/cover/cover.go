@@ -35,7 +35,7 @@ func (s *Store) Sub(kind string) *Store {
 	return &Store{dir: filepath.Join(s.dir, kind)}
 }
 
-func (s *Store) candidateNames(titleID string, id int64) []string {
+func candidateNames(titleID string, id int64) []string {
 	var names []string
 	if titleID != "" {
 		names = append(names, titleID, strings.ToUpper(titleID), strings.ToLower(titleID))
@@ -51,7 +51,7 @@ func (s *Store) Find(titleID string, id int64) string {
 	if s.dir == "" {
 		return ""
 	}
-	for _, name := range s.candidateNames(titleID, id) {
+	for _, name := range candidateNames(titleID, id) {
 		if name == "" {
 			continue
 		}
@@ -75,7 +75,7 @@ func (s *Store) Remove(titleID string, id int64) {
 	if s.dir == "" {
 		return
 	}
-	for _, name := range s.candidateNames(titleID, id) {
+	for _, name := range candidateNames(titleID, id) {
 		if name == "" {
 			continue
 		}

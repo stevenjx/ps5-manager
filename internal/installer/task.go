@@ -173,7 +173,9 @@ func (c *Client) Start(ctx context.Context, ps5IP string, port int, game *store.
 	task.Total = len(task.Items)
 	DefaultTasks.put(task)
 
-	go c.runTask(ctx, task.ID, ps5IP, port, urlBuilder)
+	// 安装任务在后台顺序执行，不能随发起它的 HTTP 请求结束而中断
+	// （用户关掉页面时 PS5 仍在装）。WithoutCancel 保留链路信息但剥离取消信号。
+	go c.runTask(context.WithoutCancel(ctx), task.ID, ps5IP, port, urlBuilder)
 	return task
 }
 
@@ -194,7 +196,7 @@ func (c *Client) runTask(ctx context.Context, taskID, ps5IP string, port int, ur
 			taskID, idx+1, len(snap.Items), item.Title, item.Kind, pkgURL)
 
 		// 每个包给 30 分钟超时（大体积本体可能耗时较久）
-		itemCtx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		itemCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 		err := c.SendInstall(itemCtx, ps5IP, port, pkgURL)
 		cancel()
 

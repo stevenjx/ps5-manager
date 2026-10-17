@@ -12,7 +12,7 @@ var assetsFS embed.FS
 
 // assetsHandler 把嵌入的 assets 目录以静态文件服务的方式暴露出去
 // 路径：/static/style.css, /static/app.js 等
-func (h *ServerHandler) assetsHandler() http.Handler {
+func (*ServerHandler) assetsHandler() http.Handler {
 	sub, err := fs.Sub(assetsFS, "assets")
 	if err != nil {
 		return http.NotFoundHandler()

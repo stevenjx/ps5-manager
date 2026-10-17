@@ -209,14 +209,14 @@ func (s *Scanner) EnrichOne(ctx context.Context, gameID int64) (*meta.Result, er
 }
 
 // scrapeTarget 组装 Target 并执行流水线
-func (s *Scanner) scrapeTarget(ctx context.Context, p *meta.Pipeline, t store.MetaTarget, roots []string) (*meta.Result, error) {
-	target := buildTarget(t, roots)
+func (*Scanner) scrapeTarget(ctx context.Context, p *meta.Pipeline, t store.MetaTarget, roots []string) (*meta.Result, error) {
+	target := buildTarget(t)
 	root := scanRootFor(t.FilePath, roots)
 	return p.Scrape(ctx, target, root)
 }
 
 // buildTarget 用命名规范解析出的信息组装刮削目标
-func buildTarget(t store.MetaTarget, roots []string) meta.Target {
+func buildTarget(t store.MetaTarget) meta.Target {
 	parsed := naming.ParsePath(t.FilePath)
 
 	name := parsed.Name

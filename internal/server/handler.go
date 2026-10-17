@@ -226,7 +226,7 @@ func (h *ServerHandler) handleGetDevices(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (h *ServerHandler) handleTriggerScan(w http.ResponseWriter, r *http.Request) {
+func (h *ServerHandler) handleTriggerScan(w http.ResponseWriter, _ *http.Request) {
 	scanDirs := h.store.GetScanDirs(h.cfg.GamesDir)
 	go func() {
 		h.scanner.ScanDirectories(context.Background(), scanDirs)
@@ -292,7 +292,7 @@ func (h *ServerHandler) handleInstall(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleInstallStatus 返回某个安装任务的实时进度与逐项结果
-func (h *ServerHandler) handleInstallStatus(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleInstallStatus(w http.ResponseWriter, r *http.Request) {
 	taskID := r.URL.Query().Get("id")
 	if taskID == "" {
 		http.Error(w, "missing id", http.StatusBadRequest)
@@ -701,7 +701,7 @@ func (h *ServerHandler) handleSettings(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
-func (h *ServerHandler) handleBrowse(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	rawPath := strings.TrimSpace(r.URL.Query().Get("path"))
 
 	targetPath := rawPath
@@ -773,7 +773,7 @@ func (h *ServerHandler) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *ServerHandler) handleProgress(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleProgress(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Write([]byte(`{"data":[]}`))
@@ -811,7 +811,7 @@ func (h *ServerHandler) handleDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, filepath.Base(pkgItem.FilePath), stat.ModTime(), file)
 }
 
-func (h *ServerHandler) detectSubnetCIDR() string {
+func (*ServerHandler) detectSubnetCIDR() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "192.168.1.0/24"
@@ -828,7 +828,7 @@ func (h *ServerHandler) detectSubnetCIDR() string {
 	return "192.168.1.0/24"
 }
 
-func (h *ServerHandler) detectHostIP() string {
+func (*ServerHandler) detectHostIP() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "127.0.0.1"

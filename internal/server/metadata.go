@@ -25,7 +25,7 @@ func (h *ServerHandler) SetPipeline(p *meta.Pipeline) {
 // ---------- 状态 ----------
 
 // handleMetadataStatus 返回刮削能力、覆盖率与当前进度
-func (h *ServerHandler) handleMetadataStatus(w http.ResponseWriter, r *http.Request) {
+func (h *ServerHandler) handleMetadataStatus(w http.ResponseWriter, _ *http.Request) {
 	resp := map[string]any{
 		"pipeline": nil,
 		"stats":    nil,
@@ -212,7 +212,7 @@ func (h *ServerHandler) rebuildPipeline() {
 // ---------- 单条记录的元数据 ----------
 
 // handleGameMetadata 返回某个游戏的元数据
-func (h *ServerHandler) handleGameMetadata(w http.ResponseWriter, r *http.Request, gameID int64) {
+func (h *ServerHandler) handleGameMetadata(w http.ResponseWriter, _ *http.Request, gameID int64) {
 	m, err := h.store.GetMeta(gameID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

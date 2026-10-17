@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func (h *ServerHandler) handleWebIndex(w http.ResponseWriter, r *http.Request) {
+func (*ServerHandler) handleWebIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
