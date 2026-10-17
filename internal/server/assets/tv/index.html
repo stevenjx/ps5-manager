@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Games Manager · TV</title>
+<link rel="stylesheet" href="/static/tv/tv.css?v=2">
+</head>
+<body>
+  <!-- 背景层：当前聚焦游戏的 Hero 大图，随焦点平滑切换 -->
+  <div id="backdrop" class="backdrop" aria-hidden="true">
+    <div class="backdrop-img" id="backdropImg"></div>
+    <div class="backdrop-scrim"></div>
+  </div>
+
+  <!-- 顶部导航 -->
+  <header class="topbar" id="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-text">GAMES<em>MANAGER</em></span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab is-active" data-nav="discover" data-focus="tab-discover">发现</button>
+      <button class="tab" data-nav="browse" data-focus="tab-browse">游戏库</button>
+    </nav>
+    <div class="topbar-right">
+      <span class="clock" id="clock"></span>
+    </div>
+  </header>
+
+  <!-- 主内容 -->
+  <main id="view" class="view"></main>
+
+  <!-- 底部手柄提示条 -->
+  <footer class="hints" id="hints"></footer>
+
+  <!-- 全局提示 -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script type="module" src="/static/tv/tv-app.js?v=2"></script>
+</body>
+</html>

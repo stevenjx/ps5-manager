@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -78,6 +79,20 @@ func (tm *TaskManager) Get(id string) (*InstallTask, bool) {
 	cp := *t
 	cp.Items = append([]InstallItem(nil), t.Items...)
 	return &cp, true
+}
+
+// List 返回当前所有安装任务快照（按开始时间倒序），供 TV 端卡片进度条轮询。
+func (tm *TaskManager) List() []*InstallTask {
+	tm.mu.RLock()
+	out := make([]*InstallTask, 0, len(tm.tasks))
+	for _, t := range tm.tasks {
+		cp := *t
+		cp.Items = append([]InstallItem(nil), t.Items...)
+		out = append(out, &cp)
+	}
+	tm.mu.RUnlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].StartedAt.After(out[j].StartedAt) })
+	return out
 }
 
 // updateItem 安全更新某项状态，并重算汇总字段

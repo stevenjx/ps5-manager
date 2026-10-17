@@ -72,6 +72,43 @@
 
 ---
 
+## TV 大屏模式（手柄驱动）
+
+除桌面端管理界面外，另有一套专为 **1080P / 4K 电视 + 手柄** 设计的全屏界面，交互与视觉移植自开源项目 [Overdrive](https://github.com/half144/overdrive)：
+
+```
+http://<主机IP>:8080/tv
+```
+
+- **Discover**：顶部 16:9 Spotlight 主视觉 + 右侧缩略列表（焦点切换时主视觉跟着换），下方为「高分推荐 / 最新入库 / 平台专区」横向滑轨
+- **Browse**：自适应网格（1920 下约 7 列 2:3 封面），平台与类型筛选
+- **Detail**：Hero 大图、中文名、发售 / 开发 / 发行 / 评分 / 容量、完整中文简介、包清单与安装按钮
+- **焦点视觉**：纯白发光描边 + 卡片 1.07 倍缩放 + 旋转高光，远距离可辨
+- **音效**：焦点移动 / 确认 / 返回 / 越界均有独立音效（取自 Overdrive 音效素材）
+- **无横版素材时**：自动用竖版封面做模糊填充 + 右侧海报位，避免硬裁导致画面破碎
+
+### 按键映射
+
+| 手柄 | 键盘 | 功能 |
+|---|---|---|
+| ✕ Cross | `Enter` / `Space` | 确认 / 进入详情 / 开始安装 |
+| ○ Circle | `Esc` / `Backspace` | 返回上一层 / 关闭抽屉 |
+| △ Triangle | `T` | 打开筛选抽屉 |
+| □ Square | `F` | 收藏 / 取消收藏 |
+| L1 / R1 | `Q` / `E` | 切换「发现 / 游戏库」 |
+| 方向键 / 左摇杆 | 方向键 / `WASD` | 焦点移动（长按加速：380ms 后每 110ms 一步） |
+| — | `M` | 静音 |
+
+> 手柄通过浏览器 **Gamepad API** 接入，即插即用；PS5 / Xbox 手柄在 Chrome、Edge 下均为标准映射。
+
+### 安装流程
+
+在详情页按 ✕ 即可把选中的包下发给 PS5：服务端会生成局域网直链并调用 `internal/installer` 异步推送，卡片右下角显示实时进度条。
+
+首次使用若未配置 PS5 地址，前端会自动调用局域网发现（`/api/v1/devices`）取第一台设备；成功一次后会记住该地址（`tv_ps5_ip`）。
+
+---
+
 ## 快速开始
 
 ### 方式一：Docker Compose（推荐，适合 NAS）
@@ -300,7 +337,18 @@ go build -o ps5-manager ./cmd/server
 | `POST` | `/api/v1/metadata/scrape` | 批量刮削（`{"force": true}` 为全量重刮） |
 | `GET` | `/download/{id}` | PKG 下载（供 PS5 拉取） |
 
-前端支持深链，便于排查与分享：`?platform=PS5`、`?game=12`、`?meta=1`。
+**TV 大屏端**（字段对齐 Overdrive catalog 契约）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/tv/catalog` | 全局目录：`id`(TitleID) / `title` / `category` / `rating` / `size_bytes` / `cover_url` / `backdrop_url` / `version` / `package_count` |
+| `GET` | `/api/tv/spotlight` | Discover 顶部 Banner 轮播（5-8 款高评分游戏） |
+| `GET` | `/api/tv/pages/{title_id}` | 详情：简介、厂商、包清单（本体 / 补丁 / DLC） |
+| `POST` | `/api/tv/install` | `{"title_id","package_type":"all\|base\|patch","ps5_ip"}` → 异步下发安装 |
+| `GET` | `/api/tv/tasks` | 安装任务列表（卡片进度条轮询） |
+| `GET` | `/tv` | TV 端单页应用（支持 `#browse`、`#game/<title_id>` 深链） |
+
+桌面端支持深链，便于排查与分享：`?platform=PS5`、`?game=12`、`?meta=1`。
 
 ---
 

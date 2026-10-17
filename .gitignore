@@ -53,3 +53,6 @@ desktop.ini
 # 用户上传 / 测试数据
 /test_games/
 /test_config/
+
+# 参考用的第三方源码（体积大，不入库）
+/overdrive源码/

@@ -73,6 +73,17 @@ func (h *ServerHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/metadata/settings", h.handleMetadataSettings)
 	mux.HandleFunc("/api/v1/metadata/scrape", h.handleScrapeAll)
 
+	// TV 大屏端（Overdrive 风格）：手柄驱动的目录 / 详情 / 安装
+	mux.HandleFunc("/api/tv/catalog", h.handleTVCatalog)
+	mux.HandleFunc("/api/tv/spotlight", h.handleTVSpotlight)
+	mux.HandleFunc("/api/tv/pages/", h.handleTVPage)
+	mux.HandleFunc("/api/tv/install", h.handleTVInstall)
+	mux.HandleFunc("/api/tv/tasks", h.handleTVTasks)
+
+	// TV 前端（内嵌单页应用）
+	mux.HandleFunc("/tv", h.handleTVIndex)
+	mux.HandleFunc("/tv/", h.handleTVIndex)
+
 	// 静态资源（CSS / JS 等 embed 资源）
 	mux.Handle("/static/", h.assetsHandler())
 

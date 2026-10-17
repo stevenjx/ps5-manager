@@ -477,6 +477,44 @@ func (s *Store) GetDLCsByTitleID(titleID string) ([]Package, error) {
 	return list, rows.Err()
 }
 
+// GetPackagesByTitleID 返回某个 TitleID 下的全部包（本体 / 补丁 / DLC），
+// 供 TV 端详情页列出可安装项。
+func (s *Store) GetPackagesByTitleID(titleID string) ([]Package, error) {
+	query := `
+	SELECT id, title_id, content_id, title, coalesce(display_name,''), is_ps5,
+	       coalesce(platform, ''), coalesce(version, ''), coalesce(region, ''),
+	       file_path, file_size, has_cover, coalesce(category, 'game'), updated_at, 0 as dlc_count
+	FROM packages
+	WHERE title_id = ?
+	ORDER BY
+	  CASE coalesce(category, 'game') WHEN 'game' THEN 0 WHEN 'patch' THEN 1 ELSE 2 END,
+	  id ASC
+	`
+	rows, err := s.db.Query(query, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []Package
+	for rows.Next() {
+		var p Package
+		var isPS5, hasCover int
+		if err := rows.Scan(
+			&p.ID, &p.TitleID, &p.ContentID, &p.Title, &p.DisplayName, &isPS5,
+			&p.Platform, &p.Version, &p.Region,
+			&p.FilePath, &p.FileSize, &hasCover, &p.Category, &p.UpdatedAt,
+			&p.DLCCount,
+		); err != nil {
+			return nil, err
+		}
+		p.IsPS5 = (isPS5 == 1)
+		p.HasCover = (hasCover == 1)
+		list = append(list, p)
+	}
+	return list, rows.Err()
+}
+
 func (s *Store) GetPackageByID(id int64) (*Package, error) {
 	query := `
 	SELECT id, title_id, content_id, title, coalesce(display_name,''), is_ps5,
