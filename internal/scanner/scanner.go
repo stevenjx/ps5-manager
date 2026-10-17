@@ -337,6 +337,13 @@ func (s *Scanner) FetchMissingCovers(ctx context.Context) {
 			return false
 		}
 		if strings.EqualFold(g.Platform, "SWITCH") {
+			// Switch 的封面 / 图标分目录存放，两者任一存在都算已处理
+			if s.cover.Sub("switch-banners").Exists(g.TitleID, g.ID) {
+				return false
+			}
+			if s.cover.Sub("switch-icons").Exists(g.TitleID, g.ID) {
+				return false
+			}
 			return g.TitleID != ""
 		}
 		return g.TitleID != "" || g.ContentID != ""
@@ -375,6 +382,8 @@ func (s *Scanner) FetchMissingCovers(ctx context.Context) {
 		}
 
 		var imgData []byte
+		// 不同用途的图片落到不同目录，避免 Switch 的图标把封面覆盖掉
+		target := s.cover
 
 		// 1) 先用刮削到的高清素材（在线 URL 直接下载；本地 file:// 直接读）
 		if m := metaByID[g.ID]; m != nil && pipe != nil {
@@ -393,7 +402,12 @@ func (s *Scanner) FetchMissingCovers(ctx context.Context) {
 		// 2) 回退到平台官方源
 		if len(imgData) <= 1024 {
 			if strings.EqualFold(g.Platform, "SWITCH") {
-				imgData = sw.FetchOnlineIcon(g.TitleID)
+				// 优先官方 16:9 横幅（更接近封面观感），失败再退回方形图标
+				if imgData = sw.FetchOnlineBanner(g.TitleID); len(imgData) > 1024 {
+					target = s.cover.Sub("switch-banners")
+				} else if imgData = sw.FetchOnlineIcon(g.TitleID); len(imgData) > 1024 {
+					target = s.cover.Sub("switch-icons")
+				}
 			} else if strings.EqualFold(g.Platform, "PS3") {
 				imgData = nil // PS3 无公开封面接口，交由刮削源处理
 			} else {
@@ -405,7 +419,7 @@ func (s *Scanner) FetchMissingCovers(ctx context.Context) {
 			log.Printf("[Scanner] 自动封面未命中: %s (%s)", g.Title, g.TitleID)
 			continue
 		}
-		if err := s.cover.Save(g.TitleID, g.ID, imgData); err != nil {
+		if err := target.Save(g.TitleID, g.ID, imgData); err != nil {
 			log.Printf("[Scanner] 自动封面保存失败: %s: %v", g.Title, err)
 			continue
 		}

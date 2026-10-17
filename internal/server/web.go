@@ -23,7 +23,7 @@ const indexHTML = `<!DOCTYPE html>
   <meta name="theme-color" content="#07090e">
   <title>Games Manager</title>
   <!-- 自托管样式，完全摆脱 cdn.tailwindcss.com -->
-  <link rel="stylesheet" href="/static/style.css?v=11">
+  <link rel="stylesheet" href="/static/style.css?v=13">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230070d1'/%3E%3Ctext x='50' y='66' text-anchor='middle' font-size='52' font-weight='900' fill='white' font-family='sans-serif'%3EP%3C/text%3E%3C/svg%3E">
 </head>
 <body onclick="closeContextMenu()">
@@ -347,9 +347,10 @@ const indexHTML = `<!DOCTYPE html>
     let viewMode = localStorage.getItem('ps5_view_mode') || 'cover';
     let installPollTimer = null;
 
-    // Switch 官方只有方形图标，故 Switch 选项卡一律使用「图标」样式
+    // Switch 现在同时具备「封面」与「图标」两种素材（见 serveGameImage），
+    // 因此不再强制使用图标样式，跟随用户选择。
     function effectiveViewMode() {
-      return currentFilter === 'SWITCH' ? 'icon' : viewMode;
+      return viewMode;
     }
 
     // 同步网格样式类 + 按钮高亮 + 切换器显隐
@@ -361,10 +362,6 @@ const indexHTML = `<!DOCTYPE html>
 
       document.getElementById('view-cover').classList.toggle('active', eff === 'cover');
       document.getElementById('view-icon').classList.toggle('active', eff === 'icon');
-
-      // Switch 选项卡下隐藏「封面/图标」切换器（只有图标可用）
-      const toggle = document.getElementById('viewToggle');
-      if (toggle) toggle.classList.toggle('hidden', currentFilter === 'SWITCH');
     }
 
     // 全局图片加载失败处理：用对应比例的占位 SVG 替代
@@ -377,6 +374,19 @@ const indexHTML = `<!DOCTYPE html>
         t.onerror = null;
         t.src = getFallbackSvg(title, platform, effectiveViewMode());
       }
+    }, true);
+
+    // Switch 的图片来源可能是「竖版封面 / 16:9 横幅 / 方形图标」三种，
+    // 加载完成后按实际宽高打标记，让 CSS 决定是裁切铺满还是完整居中。
+    document.addEventListener('load', function(e) {
+      const t = e.target;
+      if (!t || t.tagName !== 'IMG' || !t.classList.contains('cover-img')) return;
+      const card = t.closest('.ps-card');
+      if (!card || card.dataset.platform !== 'SWITCH') return;
+      const h = t.naturalHeight || 1;
+      const ratio = t.naturalWidth / h;
+      t.classList.toggle('is-square', ratio > 0.87 && ratio < 1.15);
+      t.classList.toggle('is-landscape', ratio > 1.3);
     }, true);
 
     /* ============== 显示样式切换（封面 / 图标） ============== */
@@ -660,11 +670,11 @@ const indexHTML = `<!DOCTYPE html>
         const developer = (m && m.developer) ? m.developer : '';
         const displayTitle = (m && m.name_cn) ? m.name_cn : (g.title || '');
 
-        let actionBtn;
+        // 卡片上不再放「传送到 PS5」按钮：列表页容易误触，安装入口保留在详情弹窗。
+        // Switch 的「下载到 Switch」是文件下载，语义不同，继续保留。
+        let actionBtn = '';
         if (platform === 'SWITCH') {
           actionBtn = '<a href="/download/' + g.id + '" download class="btn-download">下载到 Switch</a>';
-        } else {
-          actionBtn = '<button onclick="installGame(' + g.id + ')" class="btn btn-primary btn-block">传送到 PS5</button>';
         }
 
         let dlcBadge = '';
@@ -725,7 +735,7 @@ const indexHTML = `<!DOCTYPE html>
           '    </div>' +
           '  </div>' +
           '  <div id="progress-wrap-' + g.id + '" class="card-progress hidden"></div>' +
-          '  <div class="card-action">' + actionBtn + '</div>' +
+          (actionBtn ? '  <div class="card-action">' + actionBtn + '</div>' : '') +
           '</div>';
         grid.appendChild(card);
       });

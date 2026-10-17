@@ -378,26 +378,89 @@ func (h *ServerHandler) serveGameImage(w http.ResponseWriter, r *http.Request, g
 	}
 
 	// ---- Nintendo Switch ----
-	// 优先级：本地封面（用户上传 / 已缓存图标）→ 容器内明文图标 → 在线官方图标 → 占位
+	//
+	// Switch 有三类图片，过去都塞进同一个 covers/<title_id>，导致 mode=cover 与
+	// mode=icon 返回完全相同的内容。现在按用途分目录缓存：
+	//
+	//	covers/<tid>           用户上传的封面（两种模式都优先）
+	//	covers/switch-icons/   官方方形图标
+	//	covers/switch-banners/ 官方 16:9 横幅（作为「封面」展示）
+	//
+	// 历史上 icon 也写进过 covers/<tid>，这里用「是否接近 1:1」把方形图识别为图标，
+	// 避免 cover 模式把方形图标当成封面返回。
 	if strings.EqualFold(game.Platform, "SWITCH") {
-		if localCover := h.covers.Find(game.TitleID, game.ID); localCover != "" {
-			serveLocalFile(w, r, localCover)
-			return
-		}
-		if game.FilePath != "" {
-			if imgData := sw.ExtractIcon(game.FilePath); len(imgData) > 0 {
-				if err := h.covers.Save(game.TitleID, game.ID, imgData); err == nil {
+		icons := h.covers.Sub("switch-icons")
+		banners := h.covers.Sub("switch-banners")
+
+		if mode == "icon" {
+			// 图标：用户封面 → 专用图标缓存 → NSP 内置 → 在线官方图标
+			if localCover := h.covers.Find(game.TitleID, game.ID); localCover != "" {
+				serveLocalFile(w, r, localCover)
+				return
+			}
+			if p := icons.Find(game.TitleID, game.ID); p != "" {
+				serveLocalFile(w, r, p)
+				return
+			}
+			if game.FilePath != "" {
+				if imgData := sw.ExtractIcon(game.FilePath); len(imgData) > 0 {
+					_ = icons.Save(game.TitleID, game.ID, imgData)
 					_ = h.store.SetCoverStatus(game.ID, true)
+					writeImage(w, imgData, "image/jpeg")
+					return
 				}
+			}
+			if imgData := sw.FetchOnlineIcon(game.TitleID); len(imgData) > 1024 {
+				_ = icons.Save(game.TitleID, game.ID, imgData)
+				_ = h.store.SetCoverStatus(game.ID, true)
 				writeImage(w, imgData, "image/jpeg")
 				return
 			}
+			http.NotFound(w, r)
+			return
 		}
-		// 在线官方图标（tinfoil.media，按本体 TitleID）
-		if imgData := sw.FetchOnlineIcon(game.TitleID); len(imgData) > 1024 {
-			if err := h.covers.Save(game.TitleID, game.ID, imgData); err == nil {
-				_ = h.store.SetCoverStatus(game.ID, true)
+
+		// 封面：用户上传的真封面 → 已缓存横幅 → SteamGridDB 竖版封面 → 官方横幅 → 图标
+		if localCover := h.covers.Find(game.TitleID, game.ID); localCover != "" {
+			if data, err := os.ReadFile(localCover); err == nil && !cover.IsSquareish(data) {
+				serveLocalFile(w, r, localCover)
+				return
 			}
+		}
+		if p := banners.Find(game.TitleID, game.ID); p != "" {
+			serveLocalFile(w, r, p)
+			return
+		}
+
+		// 配了 SteamGridDB：优先取真正的 2:3 竖版封面
+		if h.meta != nil && h.meta.SGDBEnabled() {
+			name := firstNonEmpty(game.DisplayName, game.Title)
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			data, err := h.meta.FetchCoverBytes(ctx, name)
+			cancel()
+			if err == nil && len(data) > 1024 && !cover.IsSquareish(data) {
+				_ = banners.Save(game.TitleID, game.ID, data)
+				_ = h.store.SetCoverStatus(game.ID, true)
+				writeImage(w, data, "image/jpeg")
+				return
+			}
+		}
+
+		// 免 Key 兜底：官方 16:9 横幅（命中率高，前端按竖版裁切展示）
+		if imgData := sw.FetchOnlineBanner(game.TitleID); len(imgData) > 1024 {
+			_ = banners.Save(game.TitleID, game.ID, imgData)
+			_ = h.store.SetCoverStatus(game.ID, true)
+			writeImage(w, imgData, "image/jpeg")
+			return
+		}
+
+		// 最后回退到方形图标
+		if p := icons.Find(game.TitleID, game.ID); p != "" {
+			serveLocalFile(w, r, p)
+			return
+		}
+		if imgData := sw.FetchOnlineIcon(game.TitleID); len(imgData) > 1024 {
+			_ = icons.Save(game.TitleID, game.ID, imgData)
 			writeImage(w, imgData, "image/jpeg")
 			return
 		}
@@ -503,6 +566,9 @@ func (h *ServerHandler) handleCoverUploadOrDelete(w http.ResponseWriter, r *http
 
 	case http.MethodDelete:
 		h.covers.Remove(game.TitleID, game.ID)
+		// Switch 的图标 / 横幅分目录缓存，删除封面时一并清掉，避免残留旧图
+		h.covers.Sub("switch-icons").Remove(game.TitleID, game.ID)
+		h.covers.Sub("switch-banners").Remove(game.TitleID, game.ID)
 		_ = h.store.SetCoverStatus(id, false)
 		w.WriteHeader(http.StatusOK)
 		return

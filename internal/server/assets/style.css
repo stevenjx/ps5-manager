@@ -348,9 +348,10 @@ h1, h2, h3, h4, p { margin: 0; }
   left: 8px;
 }
 
-/* ============== Switch 卡片：方形图标完整显示 + 模糊背景铺底 ============== */
-/* Switch 官方只有方形图标，用 contain 完整呈现，并用同图模糊放大作为背景，
-   避免 2:3 容器出现裁切或大面积留白。 */
+/* ============== Switch 卡片 ============== */
+/* Switch 的图片来源有三种：2:3 竖版封面、16:9 官方横幅、1:1 方形图标。
+   模糊背景统一铺底；前景图按实际宽高（由 JS 打上的 is-square / is-landscape）决定
+   是裁切铺满还是完整居中，避免横幅被压扁或图标被裁掉。 */
 .icon-container.is-switch {
   background: #0b0e14;
 }
@@ -361,13 +362,28 @@ h1, h2, h3, h4, p { margin: 0; }
   background-image: var(--card-bg, none);
   background-size: cover;
   background-position: center center;
-  filter: blur(24px) brightness(0.42) saturate(1.15);
+  filter: blur(26px) brightness(0.5) saturate(1.25);
   z-index: 0;
   pointer-events: none;
 }
 .icon-container.is-switch img {
   position: relative;
   z-index: 1;
+  /* 2:3 竖版封面用 cover 铺满 */
+  object-fit: cover;
+  object-position: center 38%;
+}
+/* 16:9 官方横幅：完整显示，避免裁掉 60% 画面（上下由模糊背景补足） */
+.icon-container.is-switch img.is-landscape {
+  object-fit: contain;
+  object-position: center center;
+}
+.icon-container.is-switch img.is-square {
+  object-fit: contain;
+  object-position: center center;
+}
+/* 图标模式下 Switch 一律完整显示方形图标 */
+.game-grid.mode-icon .icon-container.is-switch img {
   object-fit: contain;
   object-position: center center;
 }

@@ -258,6 +258,33 @@ func (p *Pipeline) FetchHero(ctx context.Context, name string) (string, error) {
 	return strings.TrimSpace(res.Artwork.Hero), nil
 }
 
+// FetchCoverBytes 按名称从 SteamGridDB 取一张 2:3 竖版封面并下载为字节流。
+//
+// 与 FetchHero 的区别：这里返回图片本身，供上层直接落盘缓存。
+// 未配置 Key、未命中或下载失败时返回 (nil, nil)，调用方继续走降级链路。
+func (p *Pipeline) FetchCoverBytes(ctx context.Context, name string) ([]byte, error) {
+	if p == nil || !p.sgdb.Enabled() {
+		return nil, errors.New("未配置 SteamGridDB API Key")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, nil
+	}
+	res, err := p.sgdb.FetchForName(ctx, name)
+	if err != nil || res == nil {
+		return nil, err
+	}
+	u := strings.TrimSpace(res.Artwork.Cover)
+	if u == "" {
+		return nil, nil
+	}
+	data, err := FetchImage(ctx, p.cfg, u)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 // FetchImage 下载一张图片（供上层把刮削到的封面缓存到本地封面目录复用）。
 // 返回的数据已校验确为图片格式。
 func FetchImage(ctx context.Context, cfg Config, rawURL string) ([]byte, error) {

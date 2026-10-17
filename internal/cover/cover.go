@@ -23,6 +23,18 @@ func NewStore(dir string) *Store { return &Store{dir: dir} }
 // Dir 返回封面存放目录
 func (s *Store) Dir() string { return s.dir }
 
+// Sub 返回同一封面根目录下的子目录 store。
+//
+// 用于把「不同用途」的图片分开存放，避免互相覆盖：
+// Switch 的方形图标、16:9 横幅和 2:3 封面在过去共用同一个文件名，
+// 导致 mode=cover / mode=icon 无法返回不同内容。
+func (s *Store) Sub(kind string) *Store {
+	if s == nil || s.dir == "" || kind == "" {
+		return s
+	}
+	return &Store{dir: filepath.Join(s.dir, kind)}
+}
+
 func (s *Store) candidateNames(titleID string, id int64) []string {
 	var names []string
 	if titleID != "" {
@@ -103,4 +115,69 @@ func DetectExt(data []byte) string {
 		return ".jpg"
 	}
 	return ".jpg"
+}
+
+// Dimensions 读取图片的像素宽高（支持 JPEG / PNG）。
+//
+// 仅用于判断一张图是方形图标还是竖版封面，解析失败时返回 (0, 0)。
+func Dimensions(data []byte) (int, int) {
+	if w, h := pngSize(data); w > 0 {
+		return w, h
+	}
+	return jpegSize(data)
+}
+
+// IsSquareish 判断图片是否接近 1:1（容差 15%）。
+// Switch 的官方图标是正方形，竖版封面是 2:3，用这个基准可以把两者区分开。
+func IsSquareish(data []byte) bool {
+	w, h := Dimensions(data)
+	if w <= 0 || h <= 0 {
+		return false
+	}
+	ratio := float64(w) / float64(h)
+	return ratio > 0.87 && ratio < 1.15
+}
+
+func pngSize(data []byte) (int, int) {
+	// PNG: 8 字节签名 + IHDR（长度 4 + 类型 4 + 宽 4 + 高 4）
+	if len(data) < 24 || data[0] != 0x89 || data[1] != 'P' || data[2] != 'N' || data[3] != 'G' {
+		return 0, 0
+	}
+	w := int(data[16])<<24 | int(data[17])<<16 | int(data[18])<<8 | int(data[19])
+	h := int(data[20])<<24 | int(data[21])<<16 | int(data[22])<<8 | int(data[23])
+	return w, h
+}
+
+func jpegSize(data []byte) (int, int) {
+	if len(data) < 4 || data[0] != 0xFF || data[1] != 0xD8 {
+		return 0, 0
+	}
+	i := 2
+	for i+9 < len(data) {
+		if data[i] != 0xFF {
+			i++
+			continue
+		}
+		marker := data[i+1]
+		// 无长度字段的独立标记
+		if marker == 0xD8 || marker == 0xD9 || (marker >= 0xD0 && marker <= 0xD7) || marker == 0x01 {
+			i += 2
+			continue
+		}
+		segLen := int(data[i+2])<<8 | int(data[i+3])
+		// SOF0..SOF15（排除 DHT 0xC4 / JPG 0xC8 / DAC 0xCC）
+		if marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC {
+			if i+9 < len(data) {
+				h := int(data[i+5])<<8 | int(data[i+6])
+				w := int(data[i+7])<<8 | int(data[i+8])
+				return w, h
+			}
+			return 0, 0
+		}
+		if segLen <= 0 {
+			return 0, 0
+		}
+		i += 2 + segLen
+	}
+	return 0, 0
 }
