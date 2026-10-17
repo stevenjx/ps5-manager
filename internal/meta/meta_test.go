@@ -421,6 +421,10 @@ func fakeIGDBServer(t *testing.T, gamesJSON string) *httptest.Server {
 func newTestPipeline(t *testing.T, cfg Config, igdbSrv *httptest.Server) *Pipeline {
 	t.Helper()
 	p := NewPipeline(cfg, t.TempDir())
+	// 单元测试必须完全离线：这些用例只验证 IGDB / TitleDB / 哈希分支。
+	// Bangumi 没有可注入的 baseURL，若保持启用就会真的请求 api.bgm.tv，
+	// 在 CI 上表现为 20s 超时后整个 test job 失败。
+	p.bangumi = &BangumiClient{enabled: false}
 	if igdbSrv != nil {
 		p.igdb = &IGDBClient{
 			clientID: "cid", clientSecret: "sec",
