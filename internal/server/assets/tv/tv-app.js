@@ -14,6 +14,8 @@ const state = {
   spotlight: [],
   tasks: [],
   filter: { platform: "ALL", genre: "ALL" },
+  sort: "rating", // rating | year | size | title
+  query: "",
   detail: null,
   favorites: new Set(JSON.parse(localStorage.getItem("tv:favorites") || "[]")),
   ps5ip: localStorage.getItem("tv:ps5ip") || "",
@@ -165,6 +167,7 @@ async function loadCatalog() {
 /* --------------------------------------------------------------- 渲染 ---- */
 
 function render() {
+  if (state.route !== "discover") stopHeroAuto();
   if (state.route === "discover") renderDiscover();
   else if (state.route === "browse") renderBrowse();
   else if (state.route === "favorites") renderFavorites();
@@ -189,13 +192,121 @@ function updateTabs() {
       t.dataset.nav === state.route || (state.route === "detail" && t.dataset.nav === "browse");
     t.classList.toggle("is-active", active);
   });
+  // 顶栏图标按钮（收藏）也要跟随路由高亮
+  document.querySelectorAll(".icon-btn[data-nav]").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.nav === state.route);
+  });
+  const favCount = document.getElementById("favCount");
+  if (favCount) {
+    const n = state.favorites.size;
+    favCount.textContent = n > 99 ? "99+" : String(n);
+    favCount.hidden = n === 0;
+  }
 }
 
 /* ---------- Discover ---------- */
 
 let spotlightIndex = 0;
+let heroTimer = null;
+
+/* ---------- 通用小组件 ---------- */
+
+const HEART_SVG = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.2c-3.9-2.6-7-5.2-7-8.6A4.3 4.3 0 0 1 12 8.2a4.3 4.3 0 0 1 7 3.4c0 3.4-3.1 6-7 8.6z"/></svg>`;
+const CHEVRON_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+
+// 类型文案：优先 genres，缺省退回 category（平台名不重复展示）
+function genreText(g) {
+  const list = (g.genres && g.genres.length ? g.genres : [g.category]).filter(
+    (x) => x && x !== g.platform
+  );
+  return list.slice(0, 2).join(" · ");
+}
+
+function sortGames(list) {
+  const arr = [...list];
+  if (state.sort === "year") arr.sort((a, b) => (b.year || 0) - (a.year || 0));
+  else if (state.sort === "size") arr.sort((a, b) => (b.size_bytes || 0) - (a.size_bytes || 0));
+  else if (state.sort === "title") arr.sort((a, b) => String(a.title).localeCompare(String(b.title), "zh-Hans-CN"));
+  else
+    arr.sort(
+      (a, b) => (b.rating || 0) - (a.rating || 0) || (b.year || 0) - (a.year || 0)
+    );
+  return arr;
+}
+
+function sortLabel() {
+  return { rating: "评分", year: "最新", size: "容量", title: "名称" }[state.sort] || "评分";
+}
+
+function filteredGames() {
+  const q = state.query.trim().toLowerCase();
+  return state.games.filter((g) => {
+    if (state.filter.platform !== "ALL" && (g.platform || "").toUpperCase() !== state.filter.platform)
+      return false;
+    if (state.filter.genre !== "ALL" && g.category !== state.filter.genre) return false;
+    if (q) {
+      const hay = `${g.title} ${g.id} ${(g.genres || []).join(" ")} ${g.developer || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ---------- Discover ---------- */
+
+// Hero 标题：优先用官方 Logo 图，加载失败或无图时退回大字号文字标题
+function heroBrandHTML(g) {
+  if (g.logo_url) {
+    return `<img class="spotlight-logo" id="spotLogo" src="${esc(g.logo_url)}" alt="${esc(g.title)}">
+            <h1 class="spotlight-title" id="spotTitle" hidden>${esc(g.title)}</h1>`;
+  }
+  return `<h1 class="spotlight-title" id="spotTitle">${esc(g.title)}</h1>`;
+}
+
+function bindHeroLogo() {
+  const logo = document.getElementById("spotLogo");
+  const title = document.getElementById("spotTitle");
+  if (!logo || !title) return;
+  const showTitle = () => {
+    logo.hidden = true;
+    title.hidden = false;
+  };
+  const showLogo = () => {
+    logo.hidden = false;
+    title.hidden = true;
+  };
+  logo.onload = showLogo;
+  logo.onerror = showTitle;
+  if (logo.complete && logo.naturalWidth === 0) showTitle();
+}
+
+// 滑轨：标题 + 右侧两个圆形箭头（对齐 Overdrive 的 GameRail）
+function railHTML(title, items, scope) {
+  if (!items.length) return "";
+  return `
+      <section class="rail" data-scope="${scope}">
+        <div class="rail-head">
+          <button class="rail-title-btn" data-focus="${scope}-title" data-action="seeall" data-scope="${scope}">
+            <span class="rail-title">${esc(title)}</span>
+            <span class="rail-chevron">${CHEVRON_SVG}</span>
+          </button>
+          <div class="rail-arrows">
+            <button class="rail-arrow" data-action="rail" data-dir="-1" data-track="${scope}" tabindex="-1" aria-label="上一页">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <button class="rail-arrow" data-action="rail" data-dir="1" data-track="${scope}" tabindex="-1" aria-label="下一页">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="rail-track" data-track="${scope}">
+          ${items.map((g) => cardHTML(g, scope)).join("")}
+        </div>
+      </section>`;
+}
 
 function renderDiscover() {
+  stopHeroAuto();
   const list = state.spotlight.length ? state.spotlight : state.games.slice(0, 8);
   if (!list.length) {
     el.view.innerHTML = `<div class="empty">游戏库还是空的。请先在管理端「重新扫描」导入游戏。</div>`;
@@ -204,127 +315,175 @@ function renderDiscover() {
   }
   spotlightIndex = 0;
   const hero = list[0];
+  const fav = state.favorites.has(hero.id);
 
-  const rail = (title, items, scope) => {
-    if (!items.length) return "";
-    return `
-      <section class="rail">
-        <div class="rail-head"><h2 class="rail-title">${esc(title)}</h2><span class="rail-more">${items.length} 款</span></div>
-        <div class="rail-track" data-track="${scope}">
-          ${items.map((g) => cardHTML(g, scope)).join("")}
-        </div>
-      </section>`;
-  };
-
-  const byRating = [...state.games].sort((a, b) => b.rating - a.rating).slice(0, 14);
-  const byYear = [...state.games].sort((a, b) => b.year - a.year).slice(0, 14);
-  // PS5 / PS4 各自成轨（TV 端只展示这两个平台，见 TV_PLATFORMS）
-  const platformRails = platformStats()
-    .filter((p) => p.count >= 1)
-    .map((p) => ({
-      title: p.name + " 专区",
-      items: state.games.filter((g) => (g.platform || "").toUpperCase() === p.name).slice(0, 14),
-      scope: "rail-" + p.name.toLowerCase(),
-    }));
+  const byRating = sortGames(state.games).slice(0, 14);
+  const byYear = [...state.games].sort((a, b) => (b.year || 0) - (a.year || 0)).slice(0, 14);
+  const platformRails = platformStats().map((p) => ({
+    title: p.name + " 专区",
+    items: state.games.filter((g) => (g.platform || "").toUpperCase() === p.name).slice(0, 14),
+    scope: "rail-" + p.name.toLowerCase(),
+  }));
 
   el.view.innerHTML = `
     <section class="spotlight">
-      <div class="spotlight-hero" data-focus="hero" data-scope="spotlight" data-action="open" data-id="${esc(hero.id)}" data-backdrop="${esc(hero.backdrop_url)}" data-backdrop-cover="${hero.has_backdrop ? "" : "1"}">
+      <div class="spotlight-hero" data-focus="hero" data-scope="spotlight" data-action="open"
+           data-id="${esc(hero.id)}" data-backdrop="${esc(hero.backdrop_url)}" data-backdrop-cover="${hero.has_backdrop ? "" : "1"}">
         <div class="spotlight-art${hero.has_backdrop ? "" : " is-cover"}" id="spotArt" style="background-image:url('${esc(hero.backdrop_url)}')"></div>
         <div class="spotlight-scrim"></div>
         ${hero.has_backdrop ? "" : `<img class="spotlight-poster" id="spotPoster" src="${esc(hero.cover_url)}" alt="">`}
         <div class="spotlight-body">
-          <h1 class="spotlight-title" id="spotTitle">${esc(hero.title)}</h1>
-          <div class="spotlight-meta" id="spotMeta">${metaLine(hero)}</div>
-          <p class="spotlight-summary" id="spotSummary">${esc(hero.developer || "")}</p>
+          <div class="spotlight-brand" id="spotBrand">${heroBrandHTML(hero)}</div>
+          <div class="spotlight-genres" id="spotGenres">${esc(genreText(hero))}</div>
+          <p class="spotlight-summary" id="spotSummary">${esc(hero.summary || "")}</p>
           <div class="spotlight-actions">
             <button class="btn is-primary" data-focus="hero-play" data-action="open" data-id="${esc(hero.id)}">查看详情</button>
-            <button class="btn" data-focus="hero-install" data-action="install" data-id="${esc(hero.id)}">安装到 PS5</button>
+            <button class="btn is-outline" data-focus="hero-fav" data-action="fav" data-id="${esc(hero.id)}">
+              ${HEART_SVG}<span id="heroFavLabel">${fav ? "已收藏" : "加入收藏"}</span>
+            </button>
           </div>
         </div>
       </div>
-      <div class="spotlight-list">
+      <div class="spotlight-list" data-scope="splist">
         ${list
           .map(
             (g, i) => `
-          <button class="spotlight-item${i === 0 ? " is-current" : ""}" data-focus="spot-${esc(g.id)}" data-scope="spotlight"
+          <button class="spotlight-item${i === 0 ? " is-current is-playing" : ""}" data-focus="spot-${esc(g.id)}" data-scope="splist"
                   data-action="spot" data-id="${esc(g.id)}" data-backdrop="${esc(g.backdrop_url)}" data-backdrop-cover="${g.has_backdrop ? "" : "1"}">
-            <img class="spotlight-thumb" src="${esc(g.backdrop_url || g.cover_url)}" alt="">
-            <div>
-              <div class="spotlight-item-title">${esc(g.title)}</div>
-              <div class="spotlight-item-sub">${esc(g.category)} · ${g.year || "—"}</div>
-            </div>
+            <img class="spotlight-thumb" src="${esc(g.cover_url)}" alt="">
+            <span class="spotlight-item-title">${esc(g.title)}</span>
+            <span class="spotlight-item-bar"><i></i></span>
           </button>`
           )
           .join("")}
       </div>
     </section>
-    ${rail("高分推荐", byRating, "rail-rating")}
-    ${rail("最新入库", byYear, "rail-recent")}
-    ${platformRails.map((r) => rail(r.title, r.items, r.scope)).join("")}
+    ${railHTML("高分推荐", byRating, "rail-rating")}
+    ${railHTML("最新入库", byYear, "rail-recent")}
+    ${platformRails.map((r) => railHTML(r.title, r.items, r.scope)).join("")}
   `;
 
   setBackdrop(hero.backdrop_url, !hero.has_backdrop);
   bindImages();
+  bindHeroLogo();
+  startHeroAuto();
   fc.reset('[data-focus="hero"]');
 }
 
+// 自动轮播：7 秒一张（对齐 Overdrive SLIDE_MS），焦点停在 Hero 上时暂停
+function startHeroAuto() {
+  stopHeroAuto();
+  if (state.spotlight.length < 2) return;
+  heroTimer = setInterval(() => {
+    if (state.route !== "discover" || state.drawerOpen) return;
+    if (document.querySelector(".spotlight-item.is-focused")) return;
+    const next = (spotlightIndex + 1) % state.spotlight.length;
+    showSpotlight(state.spotlight[next].id);
+  }, 7000);
+}
+
+function stopHeroAuto() {
+  if (heroTimer) clearInterval(heroTimer);
+  heroTimer = null;
+}
+
 function showSpotlight(id) {
-  const g = state.spotlight.find((x) => x.id === id);
+  const g = state.spotlight.find((x) => x.id === id) || state.games.find((x) => x.id === id);
   if (!g) return;
+  const idx = state.spotlight.findIndex((x) => x.id === id);
+  if (idx >= 0) spotlightIndex = idx;
+
   const art = document.getElementById("spotArt");
-  if (!art) return;
-  art.classList.add("is-fading");
-  setTimeout(() => {
-    art.style.backgroundImage = `url("${g.backdrop_url}")`;
-    art.classList.toggle("is-cover", !g.has_backdrop);
-    art.classList.remove("is-fading");
-  }, 140);
+  if (art) {
+    art.classList.add("is-fading");
+    setTimeout(() => {
+      art.style.backgroundImage = `url("${g.backdrop_url}")`;
+      art.classList.toggle("is-cover", !g.has_backdrop);
+      art.classList.remove("is-fading");
+    }, 140);
+  }
+
   const poster = document.getElementById("spotPoster");
   if (poster) {
     if (g.has_backdrop) poster.remove();
     else poster.src = g.cover_url;
   }
-  const t = document.getElementById("spotTitle");
-  const m = document.getElementById("spotMeta");
-  const s = document.getElementById("spotSummary");
-  if (t) t.textContent = g.title;
-  if (m) m.innerHTML = metaLine(g);
-  if (s) s.textContent = g.developer || "";
-  document.querySelectorAll(".spotlight-item").forEach((n) => n.classList.toggle("is-current", n.dataset.id === id));
+
+  const brand = document.getElementById("spotBrand");
+  if (brand) {
+    brand.innerHTML = heroBrandHTML(g);
+    bindHeroLogo();
+  }
+
+  const genres = document.getElementById("spotGenres");
+  if (genres) genres.textContent = genreText(g);
+
+  const sum = document.getElementById("spotSummary");
+  if (sum) sum.textContent = g.summary || "";
+
+  const heroNode = document.querySelector(".spotlight-hero");
+  if (heroNode) {
+    heroNode.dataset.id = g.id;
+    heroNode.dataset.backdrop = g.backdrop_url;
+    heroNode.dataset.backdropCover = g.has_backdrop ? "" : "1";
+  }
+
+  const play = document.querySelector('[data-focus="hero-play"]');
+  if (play) play.dataset.id = g.id;
+
+  const favBtn = document.querySelector('[data-focus="hero-fav"]');
+  if (favBtn) {
+    favBtn.dataset.id = g.id;
+    const label = document.getElementById("heroFavLabel");
+    if (label) label.textContent = state.favorites.has(g.id) ? "已收藏" : "加入收藏";
+  }
+
+  document.querySelectorAll(".spotlight-item").forEach((n) => {
+    const on = n.dataset.id === id;
+    n.classList.toggle("is-current", on);
+    n.classList.remove("is-playing");
+    if (on) {
+      void n.offsetWidth; // 强制重排，让进度条动画从头开始
+      n.classList.add("is-playing");
+    }
+  });
+
   setBackdrop(g.backdrop_url, !g.has_backdrop);
 }
 
 function metaLine(g) {
   const parts = [];
-  if (g.rating) parts.push(`<span class="badge">${g.rating}</span>`);
+  if (g.rating) parts.push(`<span class="badge is-score">${g.rating}</span>`);
   if (g.year) parts.push(String(g.year));
   if (g.category) parts.push(esc(g.category));
   parts.push(formatSize(g.size_bytes));
   return parts.join(" · ");
 }
 
+// 卡片：对齐 Overdrive GameCard 的 detailed 模式（类型 / 标题 / 评分 + 容量）
 function cardHTML(g, scope) {
   const fav = state.favorites.has(g.id);
-  const platClass = g.platform === "PS5" ? "is-ps5" : "";
   const progress = progressFor(g.id);
+  const genre = genreText(g);
   return `
     <div class="card" data-focus="card-${esc(g.id)}" data-scope="${esc(scope)}" data-action="open"
          data-id="${esc(g.id)}" data-backdrop="${esc(g.backdrop_url)}" data-backdrop-cover="${g.has_backdrop ? "" : "1"}">
       <div class="card-tile">
         <img src="${esc(g.cover_url)}" alt="">
         <div class="card-fallback" hidden>${esc(g.title)}</div>
-        <div class="card-glare"></div>
         <div class="card-shine"></div>
-        <div class="card-badge">
-          ${fav ? '<span class="badge">♥</span>' : ""}
-          ${g.platform ? `<span class="badge ${platClass}">${esc(g.platform)}</span>` : ""}
-        </div>
+        <div class="card-glare"></div>
+        ${fav ? `<span class="card-heart">${HEART_SVG}</span>` : ""}
+        ${g.platform ? `<span class="badge ${g.platform === "PS5" ? "is-ps5" : ""}">${esc(g.platform)}</span>` : ""}
         ${progress !== null ? `<div class="card-progress"><i style="width:${progress}%"></i></div>` : ""}
       </div>
       <div class="card-caption">
+        ${genre ? `<div class="card-genre">${esc(genre)}</div>` : ""}
         <div class="card-title">${esc(g.title)}</div>
-        <div class="card-sub">${g.year || ""}${g.category ? " · " + esc(g.category) : ""}</div>
+        <div class="card-meta">
+          ${g.rating ? `<span class="card-score">${g.rating}</span>` : ""}
+          <span class="card-size">${formatSize(g.size_bytes)}</span>
+        </div>
       </div>
     </div>`;
 }
@@ -353,60 +512,66 @@ function platformStats() {
 function renderBrowse() {
   const stats = platformStats();
   const platformNames = new Set(stats.map((p) => p.name));
-  const platforms = [{ name: "ALL", count: state.games.length }, ...stats];
-
   const genreSet = new Set();
   for (const g of state.games) {
     const c = g.category;
     if (!c || platformNames.has(c)) continue; // 与平台名重复的「类型」不单独成芯片
     genreSet.add(c);
   }
-  const genres = ["ALL", ...[...genreSet].slice(0, 8)];
+  const genres = [...genreSet].slice(0, 8);
 
-  const filtered = state.games.filter((g) => {
-    if (state.filter.platform !== "ALL" && g.platform !== state.filter.platform) return false;
-    if (state.filter.genre !== "ALL" && g.category !== state.filter.genre) return false;
-    return true;
-  });
+  const list = sortGames(filteredGames());
+  const activeCount =
+    (state.filter.platform !== "ALL" ? 1 : 0) +
+    (state.filter.genre !== "ALL" ? 1 : 0) +
+    (state.query ? 1 : 0);
+
+  const chips = [];
+  if (state.query) chips.push({ kind: "query", label: `“${state.query}”` });
+  if (state.filter.platform !== "ALL") chips.push({ kind: "platform", label: state.filter.platform });
+  if (state.filter.genre !== "ALL") chips.push({ kind: "genre", label: state.filter.genre });
 
   el.view.innerHTML = `
-    <h1 class="page-title">游戏库</h1>
-    <div class="filterbar" data-scope="filters">
-      ${platforms
+    <div class="page-head">
+      <h1 class="page-title">游戏库 <span class="page-count">${list.length} 款</span></h1>
+    </div>
+    <div class="toolbar" data-scope="toolbar">
+      <button class="pill" data-focus="btn-filters" data-scope="toolbar" data-action="filters">
+        <span class="pill-text">筛选</span>
+        ${activeCount ? `<span class="pill-badge">${activeCount}</span>` : ""}
+        <span class="pill-key">△</span>
+      </button>
+      <button class="pill" data-focus="btn-sort" data-scope="toolbar" data-action="cycleSort">
+        <span class="pill-text">排序</span>
+        <span class="pill-value">${sortLabel()}</span>
+        <svg class="pill-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      ${chips
         .map(
-          (p) =>
-            `<button class="chip${state.filter.platform === p.name ? " is-active" : ""}" data-focus="pf-${p.name}"
-                     data-scope="filters" data-action="filter" data-kind="platform" data-value="${p.name}">${
-              p.name === "ALL" ? "全部平台" : p.name
-            }<span class="chip-count">${p.count}</span></button>`
-        )
-        .join("")}
-      ${genres
-        .slice(1)
-        .map(
-          (g) =>
-            `<button class="chip${state.filter.genre === g ? " is-active" : ""}" data-focus="gn-${esc(g)}"
-                     data-scope="filters" data-action="filter" data-kind="genre" data-value="${esc(g)}">${esc(g)}</button>`
+          (c) =>
+            `<button class="chip is-active" data-focus="ac-${esc(c.kind)}" data-scope="toolbar" data-action="clearFilter" data-kind="${esc(c.kind)}">${esc(c.label)}<span class="chip-x">×</span></button>`
         )
         .join("")}
     </div>
     ${
-      filtered.length
-        ? `<div class="grid">${filtered.map((g) => cardHTML(g, "grid")).join("")}</div>`
-        : `<div class="empty">没有符合条件的游戏。</div>`
+      list.length
+        ? `<div class="grid">${list.map((g) => cardHTML(g, "grid")).join("")}</div>`
+        : `<div class="empty">没有符合条件的游戏。按 △ 打开筛选，或清除搜索词。</div>`
     }
   `;
 
   bindImages();
-  fc.reset(filtered.length ? ".grid .card" : '.filterbar .chip');
+  fc.reset(list.length ? ".grid .card" : '[data-focus="btn-filters"]');
 }
 
 /* ---------- Favorites ---------- */
 
 function renderFavorites() {
-  const list = state.games.filter((g) => state.favorites.has(g.id));
+  const list = sortGames(state.games.filter((g) => state.favorites.has(g.id)));
   el.view.innerHTML = `
-    <h1 class="page-title">我的收藏</h1>
+    <div class="page-head">
+      <h1 class="page-title">我的收藏 <span class="page-count">${list.length} 款</span></h1>
+    </div>
     ${
       list.length
         ? `<div class="grid">${list.map((g) => cardHTML(g, "grid")).join("")}</div>`
@@ -527,6 +692,64 @@ function bindImages() {
   });
 }
 
+// 收藏切换：只改状态 + 顶栏计数，由调用方决定是否局部更新/重渲染
+function toggleFavorite(id) {
+  if (!id) return false;
+  const on = !state.favorites.has(id);
+  if (on) state.favorites.add(id);
+  else state.favorites.delete(id);
+  localStorage.setItem("tv:favorites", JSON.stringify([...state.favorites]));
+  toast(on ? "已加入收藏" : "已取消收藏");
+  updateTabs();
+  return on;
+}
+
+// 搜索：轻量覆盖层（键盘可直接输入；手柄用户可用 △ 筛选代替）
+function openSearch() {
+  closeSearch();
+  const layer = document.createElement("div");
+  layer.className = "search-layer";
+  layer.id = "searchLayer";
+  layer.innerHTML = `
+    <div class="search-box">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input id="searchInput" type="text" placeholder="搜索游戏名称、类型或 TitleID" autocomplete="off" spellcheck="false">
+      <span class="search-hint">Esc 关闭</span>
+    </div>`;
+  document.body.appendChild(layer);
+  const input = layer.querySelector("#searchInput");
+  const apply = () => {
+    state.query = input.value;
+    if (state.route !== "browse") go("browse");
+    else renderBrowse();
+  };
+  input.addEventListener("input", apply);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      state.query = "";
+      closeSearch();
+      if (state.route === "browse") renderBrowse();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      closeSearch();
+    }
+  });
+  layer.addEventListener("click", (e) => {
+    if (e.target === layer) {
+      state.query = "";
+      closeSearch();
+      if (state.route === "browse") renderBrowse();
+    }
+  });
+  setTimeout(() => input.focus(), 30);
+}
+
+function closeSearch() {
+  const layer = document.getElementById("searchLayer");
+  if (layer) layer.remove();
+}
+
 async function handleAction(node, action) {
   const id = node.dataset.id;
   switch (action) {
@@ -555,6 +778,67 @@ async function handleAction(node, action) {
     case "install":
       playSound("confirm");
       install(id, node.dataset.pkgtype || "all");
+      return true;
+    case "fav": {
+      playSound("confirm");
+      toggleFavorite(id);
+      const label = document.getElementById("heroFavLabel");
+      if (label) label.textContent = state.favorites.has(id) ? "已收藏" : "加入收藏";
+      const heroFav = document.querySelector('[data-focus="hero-fav"]');
+      if (heroFav) heroFav.classList.toggle("is-on", state.favorites.has(id));
+      return true;
+    }
+    case "rail": {
+      playSound("focus");
+      const track = document.querySelector(`.rail-track[data-track="${CSS.escape(node.dataset.track || "")}"]`);
+      if (track) {
+        const dir = Number(node.dataset.dir || 1);
+        track.scrollBy({ left: dir * Math.round(track.clientWidth * 0.8), behavior: "smooth" });
+      }
+      return true;
+    }
+    case "seeall":
+      playSound("confirm");
+      state.filter = { platform: "ALL", genre: "ALL" };
+      state.query = "";
+      go("browse");
+      return true;
+    case "filters":
+      playSound("confirm");
+      openDrawer();
+      return true;
+    case "cycleSort": {
+      playSound("focus");
+      const order = ["rating", "year", "size", "title"];
+      state.sort = order[(order.indexOf(state.sort) + 1) % order.length];
+      renderBrowse();
+      fc.focus(document.querySelector('[data-focus="btn-sort"]'), { silent: true });
+      return true;
+    }
+    case "sort":
+      playSound("confirm");
+      state.sort = node.dataset.sort || "rating";
+      go("browse");
+      return true;
+    case "clearFilter": {
+      playSound("back");
+      const kind = node.dataset.kind;
+      if (kind === "query") state.query = "";
+      else state.filter[kind] = "ALL";
+      renderBrowse();
+      return true;
+    }
+    case "search":
+      playSound("confirm");
+      openSearch();
+      return true;
+    case "settings":
+      playSound("confirm");
+      toast("PS5 地址可在「管理界面 → 设置」里配置");
+      return true;
+    case "home":
+      playSound("confirm");
+      go("discover");
       return true;
     default:
       return false;
@@ -666,8 +950,10 @@ function renderHints() {
     el.hints.innerHTML = cross.replace("选择", "安装 / 详情") + circle + opt;
   } else if (state.route === "favorites") {
     el.hints.innerHTML = cross + sq.replace("收藏", "取消收藏") + circle + lr + opt;
-  } else {
+  } else if (state.route === "browse") {
     el.hints.innerHTML = cross + tri + sq + circle + lr + opt;
+  } else {
+    el.hints.innerHTML = cross + sq + circle + lr + opt;
   }
 }
 
@@ -771,13 +1057,32 @@ const hub = new InputHub(async (evt) => {
         if (!node) return;
         const id = node.dataset.id;
         if (!id) return;
-        if (state.favorites.has(id)) state.favorites.delete(id);
-        else state.favorites.add(id);
-        localStorage.setItem("tv:favorites", JSON.stringify([...state.favorites]));
         playSound("confirm");
-        toast(state.favorites.has(id) ? "已加入收藏" : "已取消收藏");
+        const on = toggleFavorite(id);
         if (state.route === "browse") renderBrowse();
-        else if (state.route === "discover") renderDiscover();
+        else if (state.route === "favorites") renderFavorites();
+        else if (state.route === "discover") {
+          // 局部更新，避免整页重渲染把 Hero 重置回第一张
+          const card = document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+          if (card) {
+            const tile = card.querySelector(".card-tile");
+            const heart = tile.querySelector(".card-heart");
+            if (on && !heart) {
+              const node2 = document.createElement("span");
+              node2.className = "card-heart";
+              node2.innerHTML = HEART_SVG;
+              tile.appendChild(node2);
+            } else if (!on && heart) {
+              heart.remove();
+            }
+          }
+          const label = document.getElementById("heroFavLabel");
+          const heroFav = document.querySelector('[data-focus="hero-fav"]');
+          if (label && heroFav && heroFav.dataset.id === id) {
+            label.textContent = on ? "已收藏" : "加入收藏";
+            heroFav.classList.toggle("is-on", on);
+          }
+        }
         return;
       }
       case "l1":
@@ -805,7 +1110,7 @@ el.tabs.addEventListener("click", (e) => {
 
 function tickClock() {
   const d = new Date();
-  el.clock.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (el.clock) el.clock.textContent = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 tickClock();
 setInterval(tickClock, 20000);

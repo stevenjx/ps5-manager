@@ -57,6 +57,7 @@ type tvGame struct {
 	Platform     string   `json:"platform"`      // PS5 / PS4 / PS3 / SWITCH
 	Year         int      `json:"year"`          //
 	Developer    string   `json:"developer"`     //
+	Summary      string   `json:"summary"`       // 简介（Discover Hero 三行文案，空则前端隐藏）
 	HasMeta      bool     `json:"has_meta"`      // 是否刮削到元数据
 	HasBackdrop  bool     `json:"has_backdrop"`  // 是否有真正的 16:9 横版背景（否则 backdrop_url 为竖版封面）
 }
@@ -138,6 +139,7 @@ func (h *ServerHandler) buildTVGames() ([]tvGame, error) {
 		genres := []string{}
 		rating := 0
 		developer := ""
+		summary := ""
 		coverURL := "/api/v1/games/" + itoa(g.ID) + "/icon?mode=cover"
 		backdropURL := ""
 		logoURL := ""
@@ -147,6 +149,7 @@ func (h *ServerHandler) buildTVGames() ([]tvGame, error) {
 			}
 			rating = int(math.Round(m.Rating))
 			developer = m.Developer
+			summary = strings.TrimSpace(m.Summary)
 			backdropURL = "/api/v1/games/" + itoa(g.ID) + "/art?kind=hero"
 			if m.Hero == "" && m.Banner == "" {
 				backdropURL = coverURL
@@ -190,6 +193,7 @@ func (h *ServerHandler) buildTVGames() ([]tvGame, error) {
 			Platform:     g.Platform,
 			Year:         m.ReleaseYear(),
 			Developer:    developer,
+			Summary:      summary,
 			HasMeta:      m != nil && !m.IsEmpty(),
 			HasBackdrop:  hasBackdrop,
 		})

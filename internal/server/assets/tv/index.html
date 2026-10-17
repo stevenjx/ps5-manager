@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Games Manager · TV</title>
-<link rel="stylesheet" href="/static/tv/tv.css?v=6">
+<link rel="stylesheet" href="/static/tv/tv.css?v=8">
 </head>
 <body>
   <!-- 背景层：当前聚焦游戏的 Hero 大图，随焦点平滑切换 -->
@@ -13,20 +13,58 @@
     <div class="backdrop-scrim"></div>
   </div>
 
-  <!-- 顶部导航 -->
+  <!--
+    顶部导航：结构对齐 Overdrive 的 Header（96px 高、左右各 48px 内边距）
+    左：搜索胶囊 + L1 键帽 + 发现 / 游戏库
+    中：Logo + 版本号
+    右：高分推荐 / 最新入库 + 心形（收藏）/ 设置 / 管理界面 + R1 键帽
+  -->
   <header class="topbar" id="topbar">
-    <div class="brand">
+    <div class="nav-cluster">
+      <button class="search-pill" data-focus="nav-search" data-action="search">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+        </svg>
+        <span class="search-text">搜索</span>
+      </button>
+      <span class="keycap">L1</span>
+      <nav class="tabs" id="tabs">
+        <button class="tab is-active" data-nav="discover" data-focus="tab-discover">发现</button>
+        <button class="tab" data-nav="browse" data-focus="tab-browse">游戏库</button>
+      </nav>
+    </div>
+
+    <a class="brand" href="#discover" data-focus="nav-home" data-action="home">
       <span class="brand-mark"></span>
       <span class="brand-text">GAMES<em>MANAGER</em></span>
-    </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-nav="discover" data-focus="tab-discover">发现</button>
-      <button class="tab" data-nav="browse" data-focus="tab-browse">游戏库</button>
-      <button class="tab" data-nav="favorites" data-focus="tab-favorites">收藏</button>
-    </nav>
-    <div class="topbar-right">
-      <a class="manage-link" href="/" title="返回桌面管理界面">管理界面</a>
-      <span class="clock" id="clock"></span>
+      <span class="brand-ver">v1.0</span>
+    </a>
+
+    <div class="nav-cluster nav-cluster-right">
+      <nav class="tabs tabs-quiet">
+        <button class="tab" data-action="sort" data-sort="rating" data-focus="nav-top">高分推荐</button>
+        <button class="tab" data-action="sort" data-sort="year" data-focus="nav-new">最新入库</button>
+      </nav>
+      <div class="nav-icons">
+        <button class="icon-btn" data-nav="favorites" data-focus="tab-favorites" title="收藏">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 20.2c-3.9-2.6-7-5.2-7-8.6A4.3 4.3 0 0 1 12 8.2a4.3 4.3 0 0 1 7 3.4c0 3.4-3.1 6-7 8.6z"/>
+          </svg>
+          <span class="icon-count" id="favCount" hidden></span>
+        </button>
+        <button class="icon-btn" data-focus="nav-settings" data-action="settings" title="设置">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.2"/>
+            <path d="M12 3.2v2.1M12 18.7v2.1M4.8 12H2.7M21.3 12h-2.1M6.9 6.9 5.4 5.4M18.6 18.6l-1.5-1.5M17.1 6.9l1.5-1.5M5.4 18.6l1.5-1.5"/>
+          </svg>
+        </button>
+        <a class="icon-btn" href="/" title="返回管理界面">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2.8" y="4" width="18.4" height="12.4" rx="1.8"/><path d="M8.6 20.2h6.8M12 16.4v3.8"/>
+          </svg>
+        </a>
+      </div>
+      <span class="keycap">R1</span>
     </div>
   </header>
 
@@ -39,6 +77,6 @@
   <!-- 全局提示 -->
   <div class="toast-wrap" id="toastWrap"></div>
 
-  <script type="module" src="/static/tv/tv-app.js?v=7"></script>
+  <script type="module" src="/static/tv/tv-app.js?v=8"></script>
 </body>
 </html>

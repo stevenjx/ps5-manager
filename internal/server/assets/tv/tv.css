@@ -76,131 +76,327 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
     linear-gradient(180deg, rgba(11, 11, 13, 0.55) 0%, rgba(11, 11, 13, 0.35) 40%, var(--bg) 96%);
 }
 
-/* ---------- 顶部导航 ---------- */
+/* ---------- 顶部导航（对齐 Overdrive Header：96px 高 / 左右 48px） ---------- */
 .topbar {
   position: relative; z-index: 5;
-  display: flex; align-items: center; gap: 2.5rem;
-  padding: 1.75rem 3rem 0.5rem;
+  height: 6rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0 3rem;
+  background: transparent;
   transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
 }
 .topbar.is-hidden { opacity: 0; transform: translateY(-1rem); pointer-events: none; }
 
-.brand { display: flex; align-items: center; gap: 0.75rem; }
+.nav-cluster { display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0; }
+.nav-cluster-right { justify-content: flex-end; gap: 0.75rem; }
+
+/* 搜索胶囊 */
+.search-pill {
+  display: flex; align-items: center; gap: 0.6rem;
+  height: 2.75rem; padding: 0 1.15rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s, box-shadow 0.25s;
+}
+.search-pill .ic { width: 1.05rem; height: 1.05rem; }
+.search-text { font-size: 0.95rem; }
+.search-pill.is-focused {
+  color: var(--fg); background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 0.125rem var(--accent), 0 0 1.4rem rgba(255, 255, 255, 0.3);
+}
+
+/* L1 / R1 键帽 */
+.keycap {
+  font-family: "JetBrainsMono", monospace;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--muted);
+  padding: 0.22rem 0.5rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.brand {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.4rem 0.75rem; border-radius: 0.375rem;
+  text-decoration: none; color: inherit;
+  flex: 0 0 auto;
+}
 .brand-mark {
-  width: 0.75rem; height: 0.75rem; border-radius: 50%;
+  width: 0.72rem; height: 0.72rem; border-radius: 50%;
   background: var(--fg);
   box-shadow: 0 0 1rem rgba(255, 255, 255, 0.8);
 }
 .brand-text {
-  font-size: 0.95rem; letter-spacing: 0.34em; font-weight: 600; color: var(--fg-dim);
+  font-size: 0.95rem; letter-spacing: 0.32em; font-weight: 600; color: var(--fg-dim);
 }
-.brand-text em { font-style: normal; color: var(--muted); margin-left: 0.4em; }
+.brand-text em { font-style: normal; color: var(--muted); margin-left: 0.35em; }
+.brand-ver { font-family: "JetBrainsMono", monospace; font-size: 0.8rem; color: var(--muted); }
+.brand.is-focused { box-shadow: 0 0 0 0.125rem var(--accent); }
 
-.tabs { display: flex; gap: 0.5rem; }
+.tabs { display: flex; gap: 0.35rem; }
+.tabs-quiet { opacity: 0.9; }
 .tab {
-  padding: 0.55rem 1.35rem;
+  padding: 0.55rem 1.15rem;
   border-radius: 999px;
   font-size: 1rem; font-weight: 500;
-  color: var(--muted);
+  color: var(--muted); white-space: nowrap;
   transition: color 0.2s, background 0.2s, box-shadow 0.25s;
 }
 .tab.is-active { color: var(--fg); background: rgba(255, 255, 255, 0.08); }
 .tab.is-focused { color: var(--fg); box-shadow: 0 0 0 0.125rem var(--accent), 0 0 1.5rem rgba(255, 255, 255, 0.35); }
 
-.topbar-right { margin-left: auto; }
-.clock { font-family: "JetBrainsMono", monospace; font-size: 0.85rem; color: var(--muted); letter-spacing: 0.08em; }
+.nav-icons { display: flex; align-items: center; gap: 0.35rem; }
+.icon-btn {
+  position: relative;
+  width: 2.75rem; height: 2.75rem;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: color 0.2s, background 0.2s, box-shadow 0.25s;
+}
+.icon-btn .ic { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:hover { color: var(--fg); background: rgba(255, 255, 255, 0.07); }
+.icon-btn.is-active { color: var(--fg); background: rgba(255, 255, 255, 0.1); }
+.icon-btn.is-focused { color: var(--fg); box-shadow: 0 0 0 0.125rem var(--accent), 0 0 1.4rem rgba(255, 255, 255, 0.3); }
+.icon-count {
+  position: absolute; top: 0.18rem; right: 0.14rem;
+  min-width: 1.05rem; height: 1.05rem; padding: 0 0.22rem;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  background: var(--fg); color: #000;
+  font-size: 0.62rem; font-weight: 700; line-height: 1;
+}
 
 /* ---------- 内容容器 ---------- */
 .view {
   position: relative; z-index: 4;
-  height: calc(100vh - 6.5rem);
+  height: calc(100vh - 6rem);
   overflow-y: auto; overflow-x: hidden;
-  padding: 1rem 3rem 6rem;
+  padding: 1.5rem 3rem 6rem;
   scrollbar-width: none;
 }
 .view::-webkit-scrollbar { width: 0; }
 
+.page-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 0.25rem 0 1.5rem; }
 .page-title {
-  font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em;
-  margin: 0.5rem 0 1.5rem;
+  font-size: 1.875rem; font-weight: 600; letter-spacing: -0.047rem;
+  line-height: 1.4; margin: 0;
 }
+.page-count { font-size: 1.25rem; font-weight: 400; color: var(--muted); margin-left: 0.5rem; }
 
-/* ---------- Discover：Spotlight ---------- */
+/* ---------- 工具条（筛选 / 排序胶囊） ---------- */
+.toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.pill {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  height: 3.75rem; padding: 0 1.15rem 0 1.5rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg-dim);
+  font-size: 1.05rem;
+  transition: background 0.2s, box-shadow 0.25s, color 0.2s;
+}
+.pill:hover { background: #1f1f24; }
+.pill.is-focused { background: #2b2b30; color: var(--fg); box-shadow: 0 0 0 0.125rem var(--accent), 0 0 1.6rem rgba(255, 255, 255, 0.32); }
+.pill-text { color: var(--fg-dim); }
+.pill-value { color: var(--fg); font-weight: 500; }
+.pill-badge {
+  min-width: 1.5rem; height: 1.5rem; padding: 0 0.4rem;
+  display: grid; place-items: center;
+  border-radius: 999px; background: var(--fg); color: #000;
+  font-size: 0.8rem; font-weight: 600;
+}
+.pill-key { font-size: 0.95rem; color: var(--muted); }
+.pill-chevron { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
+
+/* ---------- 搜索覆盖层 ---------- */
+.search-layer {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 12vh;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(0.5rem);
+  animation: fadeIn 0.18s var(--ease-out);
+}
+.search-box {
+  display: flex; align-items: center; gap: 1rem;
+  width: min(56rem, 82vw);
+  padding: 1.1rem 1.6rem;
+  border-radius: 1.1rem;
+  background: #17171a;
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.7), 0 0 0 0.125rem rgba(255, 255, 255, 0.16);
+}
+.search-box .ic { width: 1.5rem; height: 1.5rem; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
+.search-box input {
+  flex: 1; min-width: 0;
+  background: none; border: 0; outline: none;
+  color: var(--fg); font-size: 1.5rem; font-family: inherit;
+}
+.search-box input::placeholder { color: #5c5c66; }
+.search-hint { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- Discover：Spotlight（1410×660 + 右侧 390 竖版列表） ---------- */
 .spotlight {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 21rem;
-  gap: 2rem;
-  height: 41rem;
-  margin-bottom: 2.5rem;
+  grid-template-columns: minmax(0, 1fr) 24.375rem;
+  gap: 1.5rem;
+  height: 41.25rem;
+  margin-bottom: 3.5rem;
 }
+
 .spotlight-hero {
   position: relative;
-  border-radius: var(--r-lg);
+  border-radius: 1.125rem;
   overflow: hidden;
-  background: var(--surface);
+  background: var(--surface-2);
   isolation: isolate;
   cursor: pointer;
   transition: box-shadow 0.3s var(--ease), transform 0.35s var(--ease);
 }
 .spotlight-hero.is-focused {
   box-shadow: 0 0 0 0.14rem var(--accent), 0 1.5rem 4rem rgba(0, 0, 0, 0.7);
-  transform: scale(1.008);
+  transform: scale(1.006);
 }
 .spotlight-art {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
-  transition: opacity 0.5s var(--ease);
+  transition: opacity 0.45s var(--ease);
 }
 .spotlight-art.is-fading { opacity: 0; }
+
+/* 左侧压暗 + 顶部压暗，保证文字始终可读（对齐 Overdrive 的两层渐变） */
 .spotlight-scrim {
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, rgba(8, 8, 10, 0.94) 0%, rgba(8, 8, 10, 0.72) 38%, rgba(8, 8, 10, 0.12) 72%, rgba(8, 8, 10, 0.4) 100%),
-              linear-gradient(0deg, rgba(8, 8, 10, 0.85) 0%, rgba(8, 8, 10, 0) 55%);
+  background:
+    linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.75) 35%, rgba(0, 0, 0, 0) 75%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0) 55%);
 }
-.spotlight-body {
-  position: absolute; left: 3.25rem; bottom: 3rem; right: 45%;
-  display: flex; flex-direction: column; gap: 1.1rem;
-}
-.spotlight-logo { max-width: 22rem; max-height: 7rem; object-fit: contain; object-position: left bottom; filter: drop-shadow(0 0.5rem 1.5rem rgba(0,0,0,.6)); }
-.spotlight-title { font-size: 3rem; font-weight: 700; line-height: 1.08; letter-spacing: -0.03em; margin: 0; }
-.spotlight-meta { display: flex; align-items: center; gap: 1rem; font-size: 0.95rem; color: var(--dim); }
-.spotlight-summary {
-  font-size: 1rem; line-height: 1.65; color: var(--fg-dim);
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-  max-width: 34rem;
-}
-.spotlight-actions { display: flex; gap: 0.75rem; margin-top: 0.35rem; }
 
-.btn {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  padding: 0.75rem 1.6rem; border-radius: 999px;
-  font-size: 0.95rem; font-weight: 600;
-  background: rgba(255, 255, 255, 0.1); color: var(--fg);
-  transition: background 0.2s, transform 0.2s var(--ease), box-shadow 0.25s;
+/* 无横版素材时：右侧立一张竖版海报 */
+.spotlight-poster {
+  position: absolute; right: 6%; top: 50%; transform: translateY(-50%);
+  height: 78%; aspect-ratio: 2 / 3; object-fit: cover;
+  border-radius: 0.75rem;
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.65);
 }
-.btn.is-primary { background: var(--fg); color: #000; }
-.btn.is-focused { transform: scale(1.05); box-shadow: 0 0 0 0.14rem var(--accent), 0 0 2rem rgba(255, 255, 255, 0.45); }
+
+.spotlight-body {
+  position: absolute; left: 0; bottom: 0;
+  width: 42rem;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 1.15rem;
+  padding: 3.75rem;
+}
+.spotlight-brand { min-height: 4.5rem; display: flex; align-items: flex-end; }
+.spotlight-logo {
+  max-width: 20rem; max-height: 7rem;
+  object-fit: contain; object-position: left bottom;
+  filter: drop-shadow(0 0.5rem 1.5rem rgba(0, 0, 0, 0.65));
+}
+.spotlight-title {
+  font-size: 3.375rem; font-weight: 600; line-height: 1.11;
+  letter-spacing: -0.084rem; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.spotlight-genres { font-size: 1.3rem; color: var(--dim); }
+.spotlight-summary {
+  font-size: 1.44rem; line-height: 1.6; color: rgba(242, 242, 243, 0.85);
+  max-width: 34.5rem; margin: 0;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.spotlight-actions { display: flex; gap: 0.75rem; margin-top: 0.6rem; }
+
+/* 按钮（对齐 Overdrive Button：lg = 72px 高 / 圆角 9px） */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.7rem;
+  height: 4.5rem; padding: 0 1.875rem;
+  border-radius: 0.5625rem;
+  font-size: 1.44rem; font-weight: 500;
+  background: var(--surface-2); color: var(--fg);
+  transition: background 0.2s, transform 0.18s var(--ease), box-shadow 0.25s;
+}
+.btn .ic { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 1.9; }
+.btn.is-primary { background: var(--fg); color: #0d0d0f; }
+.btn.is-primary:hover { background: #fff; }
+.btn.is-outline {
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 0 0.125rem rgba(255, 255, 255, 0.2);
+}
+.btn.is-outline:hover { background: var(--surface); }
+.btn.is-outline.is-on { box-shadow: inset 0 0 0 0.125rem rgba(255, 255, 255, 0.45); }
+.btn.is-focused { transform: scale(1.04); box-shadow: 0 0 0 0.14rem var(--accent), 0 0 2rem rgba(255, 255, 255, 0.42); }
 .btn[disabled] { opacity: 0.45; }
 
-/* Spotlight 右侧缩略列表 */
-.spotlight-list { display: flex; flex-direction: column; gap: 0.6rem; padding-top: 0.5rem; }
-.spotlight-item {
-  display: grid; grid-template-columns: 5.4rem minmax(0, 1fr); gap: 0.85rem; align-items: center;
-  padding: 0.5rem; border-radius: var(--r-md);
-  transition: background 0.2s, transform 0.25s var(--ease);
-  opacity: 0.62;
+/* 右侧竖版列表（390 宽，封面 3:4，选中底色 #17171a） */
+.spotlight-list {
+  display: flex; flex-direction: column; gap: 0.375rem;
+  overflow-y: auto; scrollbar-width: none;
 }
-.spotlight-item.is-current { opacity: 1; background: rgba(255, 255, 255, 0.07); }
-.spotlight-item.is-focused { opacity: 1; transform: translateX(-0.35rem); box-shadow: inset 0 0 0 0.12rem rgba(255,255,255,.75); }
-.spotlight-thumb { width: 5.4rem; height: 3.04rem; border-radius: 0.4rem; object-fit: cover; background: var(--surface-2); }
-.spotlight-item-title { font-size: 0.9rem; font-weight: 600; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.spotlight-item-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.2rem; }
+.spotlight-list::-webkit-scrollbar { width: 0; }
+.spotlight-item {
+  position: relative;
+  display: flex; align-items: center; gap: 1.3rem;
+  padding: 0.9375rem;
+  border-radius: 1.125rem;
+  text-align: left;
+  opacity: 0.7;
+  transition: background 0.22s, opacity 0.22s, transform 0.25s var(--ease), box-shadow 0.25s;
+}
+.spotlight-item.is-current { opacity: 1; background: var(--surface); }
+.spotlight-item.is-focused {
+  opacity: 1;
+  box-shadow: inset 0 0 0 0.125rem rgba(255, 255, 255, 0.8);
+  transform: translateX(-0.2rem);
+}
+.spotlight-thumb {
+  width: 4.9rem; aspect-ratio: 3 / 4; flex: 0 0 auto;
+  object-fit: cover; border-radius: 0.5625rem;
+  background: var(--surface-2);
+}
+.spotlight-item-title {
+  flex: 1; min-width: 0;
+  font-size: 1.3rem; line-height: 1.4; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.spotlight-item.is-current .spotlight-item-title,
+.spotlight-item.is-focused .spotlight-item-title { color: var(--fg); }
+
+/* 轮播进度条（7s，与 SLIDE_MS 一致） */
+.spotlight-item-bar {
+  position: absolute; left: 0.9375rem; right: 0.9375rem; bottom: 0.5rem;
+  height: 0.19rem; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  opacity: 0;
+}
+.spotlight-item.is-playing .spotlight-item-bar { opacity: 1; }
+.spotlight-item-bar i {
+  display: block; height: 100%; width: 0; background: var(--fg);
+  border-radius: 999px;
+}
+.spotlight-item.is-playing .spotlight-item-bar i { animation: heroBar 7s linear forwards; }
+@keyframes heroBar { from { width: 0; } to { width: 100%; } }
 
 /* ---------- 横向滑轨 ---------- */
-.rail { margin-bottom: 2.75rem; }
-.rail-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1rem; }
-.rail-title { font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
-.rail-more { font-size: 0.85rem; color: var(--muted); }
+.rail { margin-bottom: 3rem; }
+.rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.rail-title-btn { display: flex; align-items: center; gap: 0.35rem; border-radius: 0.5rem; padding: 0.15rem 0.3rem; }
+.rail-title { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.047rem; line-height: 1.4; color: var(--fg); }
+.rail-chevron { width: 1.1rem; height: 1.1rem; display: grid; place-items: center; color: var(--muted); }
+.rail-chevron svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rail-title-btn.is-focused { box-shadow: 0 0 0 0.125rem var(--accent); }
+.rail-title-btn.is-focused .rail-chevron { color: var(--fg); }
+
+.rail-arrows { display: flex; gap: 0.75rem; }
+.rail-arrow {
+  width: 3rem; height: 3rem; display: grid; place-items: center;
+  border-radius: 999px; background: var(--surface); color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+.rail-arrow svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rail-arrow:hover { background: #232329; color: var(--fg); }
+
 .rail-track {
   display: flex; gap: 2.25rem;
   padding: 0.5rem 0.25rem 1rem;
@@ -209,21 +405,22 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .rail-track::-webkit-scrollbar { height: 0; }
 
-/* ---------- 游戏卡片 ---------- */
+/* ---------- 游戏卡片（对齐 Overdrive GameCard detailed 模式） ---------- */
 .card {
   position: relative;
-  width: 9.5rem;
+  width: 11.375rem;
   flex: 0 0 auto;
   scroll-margin: 0 3rem;
   transition: transform 0.3s var(--ease);
   transform-origin: center bottom;
 }
-.card.is-focused { transform: scale(1.055) translateY(-0.35rem); z-index: 3; }
+.card.is-focused { transform: translateY(-0.375rem) scale(1.02); z-index: 3; }
+
 .card-tile {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 3;
-  border-radius: var(--r-md);
+  aspect-ratio: 3 / 4;
+  border-radius: 0.5rem;
   overflow: hidden;
   background: var(--surface);
   box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
@@ -237,7 +434,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .card-shine {
   position: absolute; inset: -0.09rem;
-  border-radius: calc(var(--r-md) + 0.09rem);
+  border-radius: 0.59rem;
   padding: 0.09rem;
   background: conic-gradient(from 0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 12%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 100%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -250,23 +447,29 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .card-glare {
-  position: absolute; inset: 0; border-radius: var(--r-md);
-  background: linear-gradient(330deg, rgba(255,255,255,0) 45%, rgba(255,255,255,0.22) 62%, rgba(255,255,255,0) 78%);
+  position: absolute; inset: 0; border-radius: 0.5rem;
+  background: linear-gradient(330deg, rgba(255,255,255,0) 45%, rgba(255,255,255,0.18) 62%, rgba(255,255,255,0) 78%);
   opacity: 0; transition: opacity 0.3s; pointer-events: none;
 }
 .card.is-focused .card-glare { opacity: 1; }
 
-.card-badge {
-  position: absolute; right: 0.4rem; top: 0.4rem;
-  display: flex; gap: 0.25rem;
-}
-.badge {
-  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.02em;
-  padding: 0.12rem 0.35rem; border-radius: 0.2rem;
-  background: rgba(0, 0, 0, 0.72); color: var(--fg);
+/* 平台徽章放左下角（Overdrive 的位置） */
+.card .badge {
+  position: absolute; left: 0.5rem; bottom: 0.5rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em;
+  padding: 0.16rem 0.4rem; border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.78); color: var(--fg);
   backdrop-filter: blur(0.3rem);
 }
-.badge.is-ps5 { background: rgba(0, 112, 209, 0.9); }
+.card .badge.is-ps5 { background: rgba(0, 112, 209, 0.92); }
+.badge.is-score { background: var(--fg); color: #000; }
+
+.card-heart {
+  position: absolute; right: 0.5rem; top: 0.5rem;
+  width: 1.6rem; height: 1.6rem; display: grid; place-items: center;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.75);
+}
+.card-heart .ic { width: 0.85rem; height: 0.85rem; fill: var(--fg); stroke: none; }
 
 .card-progress {
   position: absolute; left: 0; right: 0; bottom: 0; height: 0.22rem;
@@ -274,37 +477,46 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .card-progress > i { display: block; height: 100%; background: var(--ok); transition: width 0.4s var(--ease); }
 
-.card-caption { margin-top: 0.75rem; }
+/* 卡片文字：类型 → 标题 → 评分 + 容量 */
+.card-caption { padding-top: 0.9rem; }
+.card-genre { font-size: 1.25rem; line-height: 1.2; color: var(--muted); margin-bottom: 0.35rem; }
 .card-title {
-  font-size: 0.86rem; font-weight: 600; line-height: 1.35; color: var(--fg-dim);
-  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 1.44rem; font-weight: 600; line-height: 1.3; color: rgba(242, 242, 243, 0.9);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: 3.75rem;
   transition: color 0.2s;
 }
 .card.is-focused .card-title { color: var(--fg); }
-.card-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card-meta { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.55rem; }
+.card-score {
+  font-size: 1.25rem; font-weight: 700; color: #000;
+  background: var(--fg); border-radius: 0.19rem;
+  padding: 0.05rem 0.55rem; line-height: 1.35;
+}
+.card-size { font-size: 1.25rem; color: var(--dim); }
 
-/* ---------- Browse 网格 ---------- */
+/* ---------- Browse 网格（6 列，与 Overdrive 一致） ---------- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 2.25rem 2rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2.5rem 1.5rem;
   padding-bottom: 2rem;
 }
-@media (max-width: 1500px) { .grid { grid-template-columns: repeat(5, 1fr); } }
 .grid .card { width: 100%; }
+@media (max-width: 1500px) { .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 1200px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-.filterbar {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  margin-bottom: 1.75rem;
-}
+.filterbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .chip {
-  padding: 0.42rem 1rem; border-radius: 999px;
-  font-size: 0.82rem; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.5rem 1rem; border-radius: 999px;
+  font-size: 0.95rem; color: var(--muted);
   background: rgba(255, 255, 255, 0.05);
   transition: color 0.2s, background 0.2s, box-shadow 0.25s;
 }
-.chip.is-active { color: #000; background: var(--fg); }
+.chip.is-active { color: var(--fg); background: rgba(255, 255, 255, 0.14); }
 .chip.is-focused { box-shadow: 0 0 0 0.12rem var(--accent), 0 0 1.2rem rgba(255,255,255,.35); }
+.chip-x { font-size: 0.9rem; color: var(--muted); }
 
 .empty {
   padding: 6rem 0; text-align: center; color: var(--muted); font-size: 1rem;
@@ -420,9 +632,6 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* 修复：.card-fallback 的 display:flex 会覆盖 [hidden]，导致占位层盖住封面 */
 .card-fallback[hidden] { display: none; }
 
-/* 网格改为自适应列宽，1920 下约 7 列，1280 下约 4-5 列 */
-.grid { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
-@media (max-width: 1500px) { .grid { grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); } }
 
 /* 模糊背景略微提亮，避免整屏发黑 */
 .backdrop-img.is-cover { filter: blur(2.6rem) saturate(1.2) brightness(0.55); }
@@ -431,29 +640,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* 修复：.card-fallback 的 display:flex 会覆盖 [hidden]，导致占位层盖住封面 */
 .card-fallback[hidden] { display: none; }
 
-/* 网格改为自适应列宽，1920 下约 7 列，1280 下约 4-5 列 */
-.grid { grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
-@media (max-width: 1500px) { .grid { grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); } }
-
 /* 模糊背景略微提亮，避免整屏发黑 */
 .backdrop-img.is-cover { filter: blur(2.6rem) saturate(1.2) brightness(0.55); }
 .spotlight-art.is-cover { filter: blur(2.2rem) brightness(0.58); }
 
-/* Hero 右侧竖版海报（无 16:9 横版素材时） */
-.spotlight-poster {
-  position: absolute; right: 3.2rem; bottom: 0;
-  height: 86%; aspect-ratio: 2 / 3; object-fit: cover;
-  border-radius: 0.8rem 0.8rem 0 0;
-  box-shadow: 0 2rem 4rem rgba(0, 0, 0, 0.8), 0 0 0 0.0625rem rgba(255, 255, 255, 0.08);
-  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
-  pointer-events: none;
-}
 /* 评分徽标：白底黑字，远距离可读 */
 .spotlight-meta .badge { background: var(--fg); color: #000; font-size: 0.72rem; padding: 0.12rem 0.4rem; }
 
 /* 焦点态强化：纯白描边 + 外发光，远距离可辨（Overdrive 的 focus 观感） */
-.card.is-focused { transform: scale(1.07) translateY(-0.4rem); }
 .card.is-focused .card-tile {
   box-shadow:
     0 0 0 0.16rem #ffffff,
@@ -489,20 +683,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .manage-link:hover { color: var(--fg); border-color: rgba(255, 255, 255, 0.4); }
 
-/* 标题与网格之间留出焦点缩放的空间，避免放大后压住标题 */
-.page-title { margin-bottom: 2.25rem; }
-
-/* =============================================================================
- * 布局修正：聚焦卡片放大后不能压住上方文字
- * - 网格/滑轨顶部留出放大所需的余量
- * - scrollIntoView 时通过 scroll-margin 预留空间，避免滚动后卡片贴边遮挡标题
- * ========================================================================== */
-.view { padding-top: 1.5rem; }
-.page-title { margin: 0.25rem 0 2.5rem; }
-.filterbar { margin-bottom: 1.25rem; }
-.grid { padding-top: 1.75rem; row-gap: 2.75rem; }
-.rail-track { padding-top: 1.25rem; }
-.card { scroll-margin-top: 7rem; scroll-margin-bottom: 3rem; }
+/* 聚焦卡片滚动到视口时，预留标题与提示条的空间，避免贴边遮挡 */
+.card { scroll-margin-top: 6.5rem; scroll-margin-bottom: 3rem; }
 
 /* 芯片上的数量角标 */
 .chip-count {
